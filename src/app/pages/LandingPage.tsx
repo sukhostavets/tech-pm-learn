@@ -1,8 +1,7 @@
-import React from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { motion } from 'motion/react';
-import { ArrowRight, BookOpen, Trophy, Users, Star } from 'lucide-react';
+import { ArrowRight, BookOpen, Trophy, Users } from 'lucide-react';
 
 export function LandingPage() {
   const navigate = useNavigate();

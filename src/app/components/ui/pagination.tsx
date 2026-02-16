@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "./utils";
-import { Button, buttonVariants } from "./button";
+import { Button, buttonVariants } from "./Button";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
@@ -48,6 +48,7 @@ function PaginationLink({
   size = "icon",
   ...props
 }: PaginationLinkProps) {
+  const variant: "outline" | "ghost" = isActive ? "outline" : "ghost";
   return (
     <a
       aria-current={isActive ? "page" : undefined}
@@ -55,7 +56,7 @@ function PaginationLink({
       data-active={isActive}
       className={cn(
         buttonVariants({
-          variant: isActive ? "outline" : "ghost",
+          variant,
           size,
         }),
         className,

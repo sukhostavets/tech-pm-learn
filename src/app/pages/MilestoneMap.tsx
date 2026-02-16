@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { Lock, Star } from 'lucide-react';

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState } from 'react';
+import { motion } from 'motion/react';
 import { Timer, Star, XCircle, CheckCircle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -56,7 +56,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ onComplete, onBack }) => {
     setSelectedOption(index);
     setIsAnswered(true);
 
-    if (index === QUESTIONS[currentQuestion].correct) {
+    const currentQ = QUESTIONS[currentQuestion];
+    if (currentQ && index === currentQ.correct) {
       setScore(score + 1);
     }
 
@@ -130,13 +131,14 @@ export const QuizView: React.FC<QuizViewProps> = ({ onComplete, onBack }) => {
           className="bg-white p-8 rounded-3xl shadow-lg border-2 border-[#D2B48C] relative"
         >
           <h2 className="text-2xl font-bold text-[#654321] mb-8 font-heading text-center">
-            {QUESTIONS[currentQuestion].question}
+            {QUESTIONS[currentQuestion]?.question}
           </h2>
 
           <div className="space-y-4">
-            {QUESTIONS[currentQuestion].options.map((option, idx) => {
+            {QUESTIONS[currentQuestion]?.options.map((option, idx) => {
+              const currentQ = QUESTIONS[currentQuestion];
               const isSelected = selectedOption === idx;
-              const isCorrect = idx === QUESTIONS[currentQuestion].correct;
+              const isCorrect = currentQ ? idx === currentQ.correct : false;
               
               let buttonStyle = "border-2 border-[#D2B48C] hover:bg-[#FFFDD0] hover:border-[#8B4513]";
               let icon = null;
@@ -172,7 +174,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ onComplete, onBack }) => {
           {/* Horse Reaction Placeholder */}
           <div className="absolute -bottom-24 -right-12 pointer-events-none">
             {isAnswered ? (
-               selectedOption === QUESTIONS[currentQuestion].correct ? (
+               QUESTIONS[currentQuestion] && selectedOption === QUESTIONS[currentQuestion].correct ? (
                  <motion.div 
                    initial={{ y: 20, opacity: 0 }} 
                    animate={{ y: 0, opacity: 1 }}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -60,7 +60,8 @@ export function QuizPage() {
 
   const checkAnswer = () => {
     setIsAnswered(true);
-    if (selectedOption === questions[currentQuestion].correct) {
+    const q = questions[currentQuestion];
+    if (q && selectedOption === q.correct) {
       setScore(score + 1);
     }
   };
@@ -116,6 +117,10 @@ export function QuizPage() {
   }
 
   const q = questions[currentQuestion];
+  
+  if (!q) {
+    return null;
+  }
 
   return (
     <div className="max-w-2xl mx-auto py-12 px-4">

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { ChevronLeft, ChevronRight, Check, BookOpen, Lightbulb, HelpCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, BookOpen, Lightbulb } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function LessonView() {
@@ -140,7 +140,7 @@ export function LessonView() {
                  transition={{ duration: 0.3 }}
                  className="max-w-3xl mx-auto"
                >
-                 {lesson.sections[currentSection].content}
+                 {lesson.sections[currentSection]?.content}
                </motion.div>
             </AnimatePresence>
           </CardContent>

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ProgressBar } from '../components/ui/ProgressBar';
 import { Upload, FileText, CheckSquare, Send, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -80,7 +79,7 @@ export function ProjectSubmission() {
                   type="file" 
                   id="file-upload" 
                   className="hidden" 
-                  onChange={(e) => e.target.files && setFile(e.target.files[0])}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
                 
                 {file ? (

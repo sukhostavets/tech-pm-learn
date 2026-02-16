@@ -1,7 +1,5 @@
-import React from 'react';
 import { cn } from './Button';
 import { motion } from 'motion/react';
-import { Info } from 'lucide-react';
 
 interface ProgressBarProps {
   value: number;

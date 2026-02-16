@@ -10,8 +10,7 @@ import {
   User, 
   Bell, 
   Menu, 
-  X,
-  Settings
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

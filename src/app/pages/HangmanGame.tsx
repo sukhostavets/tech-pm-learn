@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { motion } from 'motion/react';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Confetti from 'react-confetti';
 
 const WORDS = [
@@ -24,9 +24,9 @@ export function HangmanGame() {
   const currentWord = WORDS[currentWordIndex];
   const maxWrong = 6;
 
-  useEffect(() => {
-    resetGame();
-  }, [currentWordIndex]);
+  if (!currentWord) {
+    return null;
+  }
 
   const resetGame = () => {
     setGuessedLetters([]);
@@ -34,10 +34,16 @@ export function HangmanGame() {
     setGameStatus('playing');
   };
 
+  useEffect(() => {
+    resetGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWordIndex]);
+
   const handleGuess = (letter: string) => {
     if (gameStatus !== 'playing' || guessedLetters.includes(letter)) return;
 
-    setGuessedLetters([...guessedLetters, letter]);
+    const newGuessedLetters = [...guessedLetters, letter];
+    setGuessedLetters(newGuessedLetters);
 
     if (!currentWord.word.includes(letter)) {
       const newWrong = wrongGuesses + 1;
@@ -46,7 +52,7 @@ export function HangmanGame() {
         setGameStatus('lost');
       }
     } else {
-      const isWon = currentWord.word.split('').every(l => guessedLetters.includes(l) || l === letter);
+      const isWon = currentWord.word.split('').every(l => newGuessedLetters.includes(l));
       if (isWon) {
         setGameStatus('won');
       }
