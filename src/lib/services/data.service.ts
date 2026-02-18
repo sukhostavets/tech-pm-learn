@@ -1,11 +1,9 @@
 /**
  * Data Service Layer
- * 
- * This service layer abstracts data access and can be easily swapped
- * with API calls when database is integrated.
- * 
- * Current implementation: Uses static data
- * Future implementation: Replace with API calls
+ *
+ * Abstracts data access. Use SupabaseDataService when backend is connected
+ * and user is (or will be) authenticated; use StaticDataService for tests
+ * or unauthenticated demos.
  */
 
 import type { Question, HangmanWord, Milestone, User, DailyChore, LeaderboardEntry, Reward } from '../types';
@@ -21,6 +19,7 @@ import {
   getCurrentUser,
   getUserProfile,
 } from '../data';
+import { SupabaseDataService } from './supabase-data.service';
 
 export interface IDataService {
   // Questions
@@ -89,33 +88,14 @@ class StaticDataService implements IDataService {
   }
 }
 
-/**
- * API Data Service (future implementation)
- * Uncomment and implement when API is ready
- */
-/*
-class ApiDataService implements IDataService {
-  private baseUrl = process.env.API_BASE_URL || '/api';
+const useSupabase =
+  typeof import.meta.env?.VITE_SUPABASE_URL === 'string' &&
+  import.meta.env.VITE_SUPABASE_URL.length > 0 &&
+  typeof import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY === 'string' &&
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY.length > 0;
 
-  async getQuestions(topic?: string): Promise<readonly Question[]> {
-    const url = topic 
-      ? `${this.baseUrl}/questions?topic=${topic}`
-      : `${this.baseUrl}/questions`;
-    const response = await fetch(url);
-    return response.json();
-  }
+export const dataService: IDataService = useSupabase
+  ? new SupabaseDataService()
+  : new StaticDataService();
 
-  async getHangmanWords(): Promise<readonly HangmanWord[]> {
-    const response = await fetch(`${this.baseUrl}/hangman/words`);
-    return response.json();
-  }
-
-  // ... implement other methods
-}
-*/
-
-// Export singleton instance
-export const dataService: IDataService = new StaticDataService();
-
-// Future: Switch to API service
-// export const dataService: IDataService = new ApiDataService();
+export { StaticDataService, SupabaseDataService };

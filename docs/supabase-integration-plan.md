@@ -642,9 +642,9 @@ This auto-generates a `Database` type that gives you full type safety on all Sup
 5. Protect routes (redirect to login if not authenticated)
 
 ### Phase 3: Data Migration (Day 2-3)
-1. Implement `SupabaseDataService`
-2. Swap `StaticDataService` for `SupabaseDataService` in export
-3. Test each page still works
+1. ✅ Implement `SupabaseDataService` (`src/lib/services/supabase-data.service.ts`)
+2. ✅ Swap to `SupabaseDataService` when `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set; otherwise fall back to `StaticDataService` so the app runs without backend
+3. Test each page still works (with auth for dashboard when using Supabase)
 4. Remove static data files (or keep as fallback)
 
 ### Phase 4: User State (Day 3-4)
