@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
+import { ProtectedRoute } from '../lib/auth/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
@@ -30,18 +31,20 @@ function AppContent() {
            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
-        <Layout>
-          <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/map" element={<MilestoneMap />} />
-            <Route path="/lesson" element={<LessonView />} />
-            <Route path="/quiz" element={<QuizPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/game/hangman" element={<HangmanGame />} />
-            <Route path="/project/submission" element={<ProjectSubmission />} />
-            <Route path="/achievements" element={<Placeholder title="Achievements Gallery" />} />
-          </Routes>
-        </Layout>
+        <ProtectedRoute>
+          <Layout>
+            <Routes>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/map" element={<MilestoneMap />} />
+              <Route path="/lesson" element={<LessonView />} />
+              <Route path="/quiz" element={<QuizPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/game/hangman" element={<HangmanGame />} />
+              <Route path="/project/submission" element={<ProjectSubmission />} />
+              <Route path="/achievements" element={<Placeholder title="Achievements Gallery" />} />
+            </Routes>
+          </Layout>
+        </ProtectedRoute>
       )}
     </>
   );

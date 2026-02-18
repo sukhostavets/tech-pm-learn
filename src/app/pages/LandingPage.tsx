@@ -1,10 +1,81 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { useAuth } from '../../lib/auth/authContext';
 import { motion } from 'motion/react';
 import { ArrowRight, BookOpen, Trophy, Users } from 'lucide-react';
 
+type AuthModal = 'login' | 'signup' | null;
+
 export function LandingPage() {
   const navigate = useNavigate();
+  const { user, loading, isConfigured, signIn, signUp } = useAuth();
+  const [authModal, setAuthModal] = useState<AuthModal>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupName, setSignupName] = useState('');
+
+  const openLogin = () => {
+    setAuthError(null);
+    setAuthModal('login');
+  };
+  const openSignup = () => {
+    setAuthError(null);
+    setAuthModal('signup');
+  };
+  const closeModal = () => {
+    setAuthModal(null);
+    setAuthError(null);
+    setLoginEmail('');
+    setLoginPassword('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setSignupName('');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      await signIn(loginEmail, loginPassword);
+      closeModal();
+      navigate('/dashboard');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      await signUp(signupEmail, signupPassword, signupName);
+      closeModal();
+      navigate('/dashboard');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Sign up failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-[#FFFDD0] font-sans text-[#654321]">
@@ -22,8 +93,19 @@ export function LandingPage() {
           <a href="#pricing" className="hover:text-[#FF69B4] font-medium transition-colors">Pricing</a>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')}>Login</Button>
-          <Button onClick={() => navigate('/dashboard')}>Get Started</Button>
+          {!loading && user ? (
+            <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
+          ) : isConfigured ? (
+            <>
+              <Button variant="ghost" onClick={openLogin}>Login</Button>
+              <Button onClick={openSignup}>Get Started</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => navigate('/dashboard')}>Login</Button>
+              <Button onClick={() => navigate('/dashboard')}>Get Started</Button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -47,7 +129,11 @@ export function LandingPage() {
               Master Technical Product Management concepts by managing your own digital horse stable. From API "trails" to Database "feed stores".
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="text-lg px-8" onClick={() => navigate('/dashboard')}>
+              <Button
+                size="lg"
+                className="text-lg px-8"
+                onClick={() => (user ? navigate('/dashboard') : isConfigured ? openSignup() : navigate('/dashboard'))}
+              >
                 Start Your Journey <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               <Button size="lg" variant="outline" className="text-lg px-8">
@@ -145,7 +231,11 @@ export function LandingPage() {
           <p className="text-xl text-[#D2B48C] mb-8 max-w-2xl mx-auto">
             Join thousands of product managers building their technical confidence one stall at a time.
           </p>
-          <Button size="lg" className="bg-[#FF69B4] text-[#654321] hover:bg-[#ff85c1] text-lg px-10 py-6 h-auto" onClick={() => navigate('/dashboard')}>
+          <Button
+            size="lg"
+            className="bg-[#FF69B4] text-[#654321] hover:bg-[#ff85c1] text-lg px-10 py-6 h-auto"
+            onClick={() => (user ? navigate('/dashboard') : isConfigured ? openSignup() : navigate('/dashboard'))}
+          >
             Create Your Free Stable
           </Button>
           <p className="mt-4 text-sm text-[#D2B48C]">No credit card required • Cancel anytime</p>
@@ -171,6 +261,129 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Login modal */}
+      <Dialog open={authModal === 'login'} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="bg-[#FFFDD0] border-[#D2B48C] text-[#654321]">
+          <DialogHeader>
+            <DialogTitle className="text-[#8B4513]">Log in to your stable</DialogTitle>
+            <DialogDescription className="text-[#8B4513]/80">
+              Enter your email and password to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleLogin} className="grid gap-4">
+            {authError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                {authError}
+              </p>
+            )}
+            <div className="grid gap-2">
+              <label htmlFor="login-email" className="text-sm font-medium text-[#8B4513]">
+                Email
+              </label>
+              <Input
+                id="login-email"
+                type="email"
+                placeholder="you@example.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                required
+                className="border-[#D2B48C] bg-white"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="login-password" className="text-sm font-medium text-[#8B4513]">
+                Password
+              </label>
+              <Input
+                id="login-password"
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+                className="border-[#D2B48C] bg-white"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={authLoading}>
+                {authLoading ? 'Signing in…' : 'Log in'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sign up modal */}
+      <Dialog open={authModal === 'signup'} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="bg-[#FFFDD0] border-[#D2B48C] text-[#654321]">
+          <DialogHeader>
+            <DialogTitle className="text-[#8B4513]">Create your stable</DialogTitle>
+            <DialogDescription className="text-[#8B4513]/80">
+              Sign up with email to start learning.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSignup} className="grid gap-4">
+            {authError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                {authError}
+              </p>
+            )}
+            <div className="grid gap-2">
+              <label htmlFor="signup-name" className="text-sm font-medium text-[#8B4513]">
+                Display name
+              </label>
+              <Input
+                id="signup-name"
+                type="text"
+                placeholder="Stable Keeper"
+                value={signupName}
+                onChange={(e) => setSignupName(e.target.value)}
+                className="border-[#D2B48C] bg-white"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="signup-email" className="text-sm font-medium text-[#8B4513]">
+                Email
+              </label>
+              <Input
+                id="signup-email"
+                type="email"
+                placeholder="you@example.com"
+                value={signupEmail}
+                onChange={(e) => setSignupEmail(e.target.value)}
+                required
+                className="border-[#D2B48C] bg-white"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="signup-password" className="text-sm font-medium text-[#8B4513]">
+                Password
+              </label>
+              <Input
+                id="signup-password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={signupPassword}
+                onChange={(e) => setSignupPassword(e.target.value)}
+                required
+                minLength={6}
+                className="border-[#D2B48C] bg-white"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={authLoading}>
+                {authLoading ? 'Creating account…' : 'Sign up'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

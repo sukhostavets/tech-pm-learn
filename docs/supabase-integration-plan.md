@@ -443,15 +443,14 @@ CREATE POLICY "Users can view own submissions"
 
 In Supabase Dashboard → Authentication → Providers:
 
-1. **Email/Password**: Enabled by default
-2. **Google OAuth** (recommended):
-   - Create Google Cloud OAuth credentials
-   - Add client ID and secret to Supabase
-3. **Magic Links**: Enabled by default (passwordless email login)
+1. **Email/Password**: Enabled by default (use this for local testing)
+2. **Magic Links**: Optional; enabled by default for passwordless email login
 
-### Step 8: Create Auth Context in React
+### Step 8: Create Auth Context in React ✅
 
-Create `src/lib/auth/authContext.tsx`:
+Implemented in `src/lib/auth/authContext.tsx` and `src/lib/auth/ProtectedRoute.tsx`. When Supabase is not configured, auth methods no-op and `isConfigured` is false so the app works with static data.
+
+Create `src/lib/auth/authContext.tsx` (reference):
 
 ```typescript
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -465,7 +464,6 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -511,13 +509,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (error) throw error;
   };
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-    if (error) throw error;
-  };
-
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -635,11 +628,11 @@ This auto-generates a `Database` type that gives you full type safety on all Sup
 6. ✅ Generate TypeScript types
 
 ### Phase 2: Auth (Day 1-2)
-1. Enable auth providers in dashboard
-2. Create `AuthContext` and `AuthProvider`
-3. Wrap app in `AuthProvider`
-4. Add login/signup flow to `LandingPage`
-5. Protect routes (redirect to login if not authenticated)
+1. Enable auth providers in dashboard (Supabase Dashboard → Authentication → Providers)
+2. ✅ Create `AuthContext` and `AuthProvider` (`src/lib/auth/authContext.tsx`)
+3. ✅ Wrap app in `AuthProvider` (`main.tsx`)
+4. ✅ Add login/signup flow to `LandingPage` (email/password modals)
+5. ✅ Protect routes via `ProtectedRoute` (redirect to `/` when Supabase configured and not authenticated)
 
 ### Phase 3: Data Migration (Day 2-3)
 1. ✅ Implement `SupabaseDataService` (`src/lib/services/supabase-data.service.ts`)
@@ -659,6 +652,23 @@ This auto-generates a `Database` type that gives you full type safety on all Sup
 2. Implement file upload in `ProjectSubmission` page
 3. Wire up leaderboard with real-time subscription
 4. Implement horse unlocking on milestone completion
+
+---
+
+## Ready for local testing with Supabase
+
+Before running the app against Supabase locally, confirm:
+
+1. **Supabase project** – Created at [supabase.com](https://supabase.com), schema and seed data applied (tables exist, content seeded).
+2. **`.env.local`** – In project root, with:
+   - `VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...` (or legacy anon key)
+3. **Auth** – Email/Password provider enabled in Supabase Dashboard → Authentication → Providers (default).
+4. **Dev server** – Run `npm run dev` (or `pnpm dev`); open the app in the browser.
+
+**Flow:** Open `/` → click **Get Started** or **Login** → sign up (or log in) with email/password → you are redirected to `/dashboard`. Profile is created automatically via `handle_new_user` trigger. Data (milestones, questions, leaderboard, etc.) is loaded from Supabase. Sign out from the sidebar returns you to `/`.
+
+**Without `.env.local`:** The app uses `StaticDataService` and mock data; no auth is required and **Login** / **Get Started** go straight to the dashboard.
 
 ---
 

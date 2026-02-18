@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router';
 import { cn } from '../ui/Button';
-import { 
-  Home, 
-  Map, 
-  BookOpen, 
-  Trophy, 
-  User, 
-  Bell, 
-  Menu, 
-  X
+import { useAuth } from '../../../lib/auth/authContext';
+import {
+  Home,
+  Map,
+  BookOpen,
+  Trophy,
+  User,
+  Bell,
+  Menu,
+  X,
+  LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,6 +23,13 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isConfigured, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   const navItems = [
     { icon: Home, label: 'Stable Hub', path: '/dashboard' },
@@ -44,8 +53,12 @@ export function Layout({ children }: LayoutProps) {
         </div>
         <div className="flex items-center gap-3">
           <Bell size={20} />
-          <div className="w-8 h-8 bg-[#FFB6C1] rounded-full border-2 border-[#FFFDD0] flex items-center justify-center text-[#8B4513] font-bold">
-            U
+          <div className="w-8 h-8 bg-[#FFB6C1] rounded-full border-2 border-[#FFFDD0] flex items-center justify-center text-[#8B4513] font-bold overflow-hidden">
+            {user?.user_metadata?.avatar_url ? (
+              <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (user?.email?.[0] ?? user?.user_metadata?.name?.[0] ?? 'U').toUpperCase()
+            )}
           </div>
         </div>
       </header>
@@ -99,16 +112,32 @@ export function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* User Profile Mini */}
-            <div className="p-4 bg-[#654321] mt-auto">
+            <div className="p-4 bg-[#654321] mt-auto space-y-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#FFB6C1] rounded-full border-2 border-[#FFFDD0] flex items-center justify-center text-[#8B4513] font-bold overflow-hidden">
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User" />
+                  {user?.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (user?.email?.[0] ?? user?.user_metadata?.name?.[0] ?? '?').toUpperCase()
+                  )}
                 </div>
-                <div>
-                  <p className="font-bold text-sm">Stable Keeper</p>
-                  <p className="text-xs text-[#D2B48C]">Lvl 5 Rancher</p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm truncate">
+                    {user?.user_metadata?.name ?? user?.email ?? 'Stable Keeper'}
+                  </p>
+                  <p className="text-xs text-[#D2B48C] truncate">{user?.email ?? 'Lvl 5 Rancher'}</p>
                 </div>
               </div>
+              {isConfigured && user && (
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-[#FFFDD0] hover:bg-[#a05218] transition-colors"
+                >
+                  <LogOut size={16} />
+                  Sign out
+                </button>
+              )}
             </div>
           </motion.aside>
         )}
@@ -122,14 +151,14 @@ export function Layout({ children }: LayoutProps) {
              {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
           </h2>
           <div className="flex items-center gap-6">
-             <div className="flex items-center gap-2 bg-[#FFF8DC] px-3 py-1 rounded-full border border-[#D2B48C]">
-                <span>🌾</span>
-                <span className="font-bold text-[#8B4513]">1,250 Hay Coins</span>
-             </div>
-             <button className="relative">
-                <Bell className="text-[#8B4513]" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-             </button>
+            <div className="flex items-center gap-2 bg-[#FFF8DC] px-3 py-1 rounded-full border border-[#D2B48C]">
+              <span>🌾</span>
+              <span className="font-bold text-[#8B4513]">1,250 Hay Coins</span>
+            </div>
+            <button type="button" className="relative">
+              <Bell className="text-[#8B4513]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+            </button>
           </div>
         </div>
 
