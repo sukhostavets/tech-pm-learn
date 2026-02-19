@@ -10,8 +10,10 @@ export interface User {
   xp: number;
   nextLevelXp: number;
   streak: number;
+  hayCoins?: number;
   avatarUrl?: string;
   joinDate?: Date;
+  tutorialCompleted?: boolean;
 }
 
 export interface UserStats {

@@ -11,6 +11,7 @@ import {
 } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { useAuth } from '../../lib/auth/authContext';
+import { APP_LOGO_URL } from '../../lib/assets';
 import { motion } from 'motion/react';
 import { ArrowRight, BookOpen, Trophy, Users } from 'lucide-react';
 
@@ -82,8 +83,12 @@ export function LandingPage() {
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-[#D2B48C]">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-[#FFB6C1] rounded-full flex items-center justify-center text-2xl border-2 border-[#8B4513]">
-            🐴
+          <div className="w-10 h-10 bg-[#FFB6C1] rounded-full flex items-center justify-center overflow-hidden border-2 border-[#8B4513]">
+            {APP_LOGO_URL ? (
+              <img src={APP_LOGO_URL} alt="" className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-2xl">🐴</span>
+            )}
           </div>
           <span className="font-bold text-xl text-[#8B4513]">Tech Stable Academy</span>
         </div>
@@ -248,7 +253,11 @@ export function LandingPage() {
       <footer className="bg-[#4E342E] text-[#D2B48C] py-12 border-t border-[#8B4513]">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="text-2xl">🐴</div>
+            {APP_LOGO_URL ? (
+              <img src={APP_LOGO_URL} alt="" className="h-8 w-8 object-contain" />
+            ) : (
+              <div className="text-2xl">🐴</div>
+            )}
             <span className="font-bold text-xl text-[#FFFDD0]">Tech Stable Academy</span>
           </div>
           <div className="text-sm">

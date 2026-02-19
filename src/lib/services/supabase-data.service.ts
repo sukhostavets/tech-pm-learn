@@ -30,8 +30,10 @@ function profileToUser(row: {
   xp: number;
   next_level_xp: number;
   streak: number;
+  hay_coins?: number;
   avatar_url: string | null;
   created_at: string;
+  tutorial_completed?: boolean;
 }): User {
   return {
     id: row.id,
@@ -41,16 +43,20 @@ function profileToUser(row: {
     xp: row.xp,
     nextLevelXp: row.next_level_xp,
     streak: row.streak,
+    hayCoins: row.hay_coins ?? 0,
     avatarUrl: row.avatar_url ?? undefined,
     joinDate: new Date(row.created_at),
+    tutorialCompleted: row.tutorial_completed ?? false,
   };
 }
 
 export class SupabaseDataService implements IDataService {
-  async getQuestions(topic?: string): Promise<readonly Question[]> {
+  async getQuestions(topic?: string, milestoneId?: number): Promise<readonly Question[]> {
     const db = getSupabase();
     let query = db.from('questions').select('id, question, options, correct_index, explanation');
-    if (topic) {
+    if (milestoneId != null) {
+      query = query.eq('milestone_id', milestoneId);
+    } else if (topic) {
       query = query.eq('topic', topic);
     }
     const { data, error } = await query.order('id');
@@ -181,6 +187,27 @@ export class SupabaseDataService implements IDataService {
     return profileToUser(profile);
   }
 
+  async getHorsesCount(): Promise<{ collected: number; total: number }> {
+    const db = getSupabase();
+    const [
+      { count: collected },
+      { count: total },
+    ] = await Promise.all([
+      (async () => {
+        const { data: { user } } = await db.auth.getUser();
+        if (!user) return { count: 0 };
+        const { count, error } = await db
+          .from('user_horses')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (error) return { count: 0 };
+        return { count: count ?? 0 };
+      })(),
+      db.from('horses').select('*', { count: 'exact', head: true }).then(({ count, error }) => ({ count: error ? 0 : (count ?? 0) })),
+    ]);
+    return { collected: collected ?? 0, total: total ?? 0 };
+  }
+
   async getUserProfile(
     userId: string
   ): Promise<User & { title?: string; horses?: unknown[]; badges?: string[] }> {
@@ -292,6 +319,113 @@ export class SupabaseDataService implements IDataService {
       { user_id: user.id, chore_id: choreIdNum, completed_at: today },
       { onConflict: 'user_id,chore_id,completed_at' }
     );
+    if (error) throw error;
+  }
+
+  async setMilestoneInProgress(milestoneId: number): Promise<void> {
+    const db = getSupabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const { error } = await db.from('user_milestones').upsert(
+      {
+        user_id: user.id,
+        milestone_id: milestoneId,
+        status: 'in-progress',
+        progress: 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,milestone_id' }
+    );
+    if (error) throw error;
+  }
+
+  async recordQuizAttempt(params: {
+    milestoneId?: number | null;
+    topic: string;
+    score: number;
+    totalQuestions: number;
+    passed: boolean;
+    xpEarned?: number;
+  }): Promise<void> {
+    const db = getSupabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const xpEarned = params.xpEarned ?? (params.passed ? 50 : 0);
+
+    const { error: attemptError } = await db.from('quiz_attempts').insert({
+      user_id: user.id,
+      milestone_id: params.milestoneId ?? null,
+      topic: params.topic,
+      score: params.score,
+      total_questions: params.totalQuestions,
+      passed: params.passed,
+      xp_earned: xpEarned,
+    });
+    if (attemptError) throw attemptError;
+
+    if (params.passed && params.milestoneId != null) {
+      const { error: umError } = await db.from('user_milestones').upsert(
+        {
+          user_id: user.id,
+          milestone_id: params.milestoneId,
+          status: 'completed',
+          progress: 100,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,milestone_id' }
+      );
+      if (umError) throw umError;
+    }
+
+    const { data: profile } = await db
+      .from('profiles')
+      .select('xp')
+      .eq('id', user.id)
+      .single();
+    if (profile) {
+      await db
+        .from('profiles')
+        .update({
+          xp: (profile.xp ?? 0) + xpEarned,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    }
+  }
+
+  async updateProfile(updates: {
+    name?: string;
+    stableName?: string;
+    avatarUrl?: string | null;
+  }): Promise<void> {
+    const db = getSupabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) row.name = updates.name;
+    if (updates.stableName !== undefined) row.stable_name = updates.stableName;
+    if (updates.avatarUrl !== undefined) row.avatar_url = updates.avatarUrl;
+    const { error } = await db.from('profiles').update(row).eq('id', user.id);
+    if (error) throw error;
+  }
+
+  async setTutorialCompleted(): Promise<void> {
+    const db = getSupabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const { error } = await db
+      .from('profiles')
+      .update({ tutorial_completed: true, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
     if (error) throw error;
   }
 }

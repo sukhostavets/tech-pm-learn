@@ -180,6 +180,7 @@ export type Database = {
           next_level_xp: number
           stable_name: string
           streak: number
+          tutorial_completed: boolean
           updated_at: string
           xp: number
         }
@@ -194,6 +195,7 @@ export type Database = {
           next_level_xp?: number
           stable_name?: string
           streak?: number
+          tutorial_completed?: boolean
           updated_at?: string
           xp?: number
         }
@@ -208,6 +210,7 @@ export type Database = {
           next_level_xp?: number
           stable_name?: string
           streak?: number
+          tutorial_completed?: boolean
           updated_at?: string
           xp?: number
         }

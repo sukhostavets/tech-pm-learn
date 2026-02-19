@@ -1,78 +1,106 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { ChevronLeft, ChevronRight, Check, BookOpen, Lightbulb } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { dataService } from '../../lib/services/data.service';
+import type { Milestone } from '../../lib/types';
+
+const DEFAULT_SECTIONS = [
+  {
+    id: 'intro',
+    title: 'Introduction',
+    content: (
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold text-[#654321]">The Stable's Feed Room</h3>
+        <p className="text-[#8B4513] leading-relaxed">
+          Imagine your stable's feed room. It's not just a pile of hay; it's an organized system.
+        </p>
+        <p className="text-[#8B4513] leading-relaxed">
+          In the tech world, this is exactly what a <strong>Database</strong> is.
+        </p>
+        <div className="my-6 p-6 bg-[#FFF8DC] border border-[#D2B48C] rounded-xl flex items-center gap-6">
+          <div className="text-5xl">🛖</div>
+          <div>
+            <h4 className="font-bold text-[#654321]">Key Concept: Database</h4>
+            <p className="text-sm text-[#8B4513]">A structured set of data held in a computer.</p>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'sql',
+    title: "SQL: The Stable Hand's Checklist",
+    content: (
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold text-[#654321]">Fetching the Feed (SQL)</h3>
+        <p className="text-[#8B4513] leading-relaxed">
+          We use <strong>SQL (Structured Query Language)</strong> to talk to our database.
+        </p>
+        <div className="bg-[#2a2a2a] p-4 rounded-lg font-mono text-sm text-green-400 overflow-x-auto my-4 border-2 border-[#8B4513]">
+          <span className="text-purple-400">SELECT</span> feed_type, amount<br />
+          <span className="text-purple-400">FROM</span> feed_inventory<br />
+          <span className="text-purple-400">WHERE</span> horse_name = <span className="text-yellow-300">'Bella'</span>;
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'interactive',
+    title: 'Try It Yourself',
+    content: (
+      <div className="space-y-4">
+        <h3 className="text-2xl font-bold text-[#654321]">Activity: Sorting the Inventory</h3>
+        <p className="text-[#8B4513]">Drag the items into the correct table columns below.</p>
+        <div className="h-64 bg-white border-2 border-dashed border-[#FF69B4] rounded-xl flex items-center justify-center text-[#FF69B4]">
+          [Interactive Placeholder]
+        </div>
+      </div>
+    ),
+  },
+];
 
 export function LessonView() {
   const navigate = useNavigate();
+  const { milestoneId } = useParams<{ milestoneId: string }>();
+  const id = milestoneId ? parseInt(milestoneId, 10) : 1;
+  const [milestone, setMilestone] = useState<Milestone | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
+  useEffect(() => {
+    if (Number.isNaN(id)) {
+      setLoading(false);
+      setError('Invalid milestone');
+      return;
+    }
+    let cancelled = false;
+    dataService
+      .getMilestoneById(id)
+      .then((m) => {
+        if (!cancelled && m) {
+          setMilestone(m);
+          dataService.setMilestoneInProgress(id).catch((e) => console.error('setMilestoneInProgress', e));
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [id]);
+
   const lesson = {
-    title: "Understanding Databases as Feed Storage",
-    module: "Data & SQL",
-    sections: [
-      {
-        id: "intro",
-        title: "Introduction",
-        content: (
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold text-[#654321]">The Stable's Feed Room</h3>
-            <p className="text-[#8B4513] leading-relaxed">
-              Imagine your stable's feed room. It's not just a pile of hay; it's an organized system. You have bins for oats, shelves for supplements, and bales of hay stacked in specific corners.
-            </p>
-            <p className="text-[#8B4513] leading-relaxed">
-              In the tech world, this is exactly what a <strong>Database</strong> is. It's not just a random collection of data; it's an organized storage facility where applications "feed" from.
-            </p>
-            <div className="my-6 p-6 bg-[#FFF8DC] border border-[#D2B48C] rounded-xl flex items-center gap-6">
-               <div className="text-5xl">🛖</div>
-               <div>
-                 <h4 className="font-bold text-[#654321]">Key Concept: Database</h4>
-                 <p className="text-sm text-[#8B4513]">A structured set of data held in a computer, especially one that is accessible in various ways.</p>
-               </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        id: "sql",
-        title: "SQL: The Stable Hand's Checklist",
-        content: (
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold text-[#654321]">Fetching the Feed (SQL)</h3>
-            <p className="text-[#8B4513] leading-relaxed">
-              When you tell a stable hand to "Go get 3 scoops of oats for Bella," you are issuing a query. In tech, we use a language called <strong>SQL (Structured Query Language)</strong> to talk to our database.
-            </p>
-            <div className="bg-[#2a2a2a] p-4 rounded-lg font-mono text-sm text-green-400 overflow-x-auto my-4 border-2 border-[#8B4513]">
-              <span className="text-purple-400">SELECT</span> feed_type, amount<br/>
-              <span className="text-purple-400">FROM</span> feed_inventory<br/>
-              <span className="text-purple-400">WHERE</span> horse_name = <span className="text-yellow-300">'Bella'</span>;
-            </div>
-            <p className="text-[#8B4513] leading-relaxed">
-              Just like that clear instruction ensures Bella gets the right food, a SQL query ensures the app gets the right data.
-            </p>
-          </div>
-        )
-      },
-      {
-        id: "interactive",
-        title: "Try It Yourself",
-        content: (
-          <div className="space-y-4">
-             <h3 className="text-2xl font-bold text-[#654321]">Activity: Sorting the Inventory</h3>
-             <p className="text-[#8B4513]">
-               Drag the items into the correct table columns below to structure your database.
-             </p>
-             <div className="h-64 bg-white border-2 border-dashed border-[#FF69B4] rounded-xl flex items-center justify-center text-[#FF69B4]">
-               [Interactive Drag & Drop Placeholder]
-             </div>
-          </div>
-        )
-      }
-    ]
+    title: milestone?.title ?? 'Lesson',
+    module: milestone?.topic ?? '—',
+    sections: DEFAULT_SECTIONS,
   };
 
   const nextSection = () => {
@@ -85,9 +113,25 @@ export function LessonView() {
 
   const prevSection = () => {
     if (currentSection > 0) {
-      setCurrentSection(curr => curr - 1);
+      setCurrentSection((curr) => curr - 1);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <p className="text-[#8B4513] font-medium">Loading lesson…</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
+        <p className="text-red-600">{error}</p>
+        <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)]">
@@ -156,11 +200,11 @@ export function LessonView() {
              </Button>
              
              {isCompleted ? (
-               <Button 
-                 variant="primary" 
-                 size="lg" 
+               <Button
+                 variant="primary"
+                 size="lg"
                  className="animate-pulse"
-                 onClick={() => navigate('/quiz')}
+                 onClick={() => navigate(`/quiz?milestoneId=${id}`)}
                >
                  Take Quiz <ChevronRight className="ml-2" />
                </Button>

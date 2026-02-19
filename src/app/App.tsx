@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { ProtectedRoute } from '../lib/auth/ProtectedRoute';
+import { APP_LOGO_URL } from '../lib/assets';
 import { Layout } from './components/layout/Layout';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
@@ -36,7 +38,7 @@ function AppContent() {
             <Routes>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/map" element={<MilestoneMap />} />
-              <Route path="/lesson" element={<LessonView />} />
+              <Route path="/lesson/:milestoneId" element={<LessonView />} />
               <Route path="/quiz" element={<QuizPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/game/hangman" element={<HangmanGame />} />
@@ -50,9 +52,24 @@ function AppContent() {
   );
 }
 
+function Favicon() {
+  useEffect(() => {
+    if (!APP_LOGO_URL) return;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = APP_LOGO_URL;
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <Favicon />
       <AppContent />
     </BrowserRouter>
   );

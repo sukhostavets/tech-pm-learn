@@ -7,13 +7,20 @@ import type { DailyChore } from '../../../lib/types';
 interface ChoreItemProps {
   chore: DailyChore;
   onToggle?: (choreId: string) => void;
+  /** When set, click navigates instead of toggling (e.g. "Play Hangman" → game). */
+  onNavigate?: () => void;
 }
 
-export function ChoreItem({ chore, onToggle }: ChoreItemProps) {
+export function ChoreItem({ chore, onToggle, onNavigate }: ChoreItemProps) {
+  const handleClick = () => {
+    if (onNavigate) onNavigate();
+    else onToggle?.(chore.id);
+  };
+
   return (
-    <li 
+    <li
       className="flex items-center gap-3 p-2 hover:bg-[#FFF8DC] rounded-lg transition-colors cursor-pointer group"
-      onClick={() => onToggle?.(chore.id)}
+      onClick={handleClick}
     >
       <div className={`
         w-5 h-5 rounded border-2 border-[#8B4513] flex items-center justify-center transition-colors

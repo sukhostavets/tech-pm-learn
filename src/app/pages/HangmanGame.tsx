@@ -1,32 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import Confetti from 'react-confetti';
-
-const WORDS = [
-  { word: "DATABASE", hint: "Where the stable stores its feed" },
-  { word: "API", hint: "The trail connecting different stables" },
-  { word: "CLOUD", hint: "The sky above the pasture" },
-  { word: "SERVER", hint: "The barn that houses the horses" },
-  { word: "FRONTEND", hint: "The part of the stable visitors see" }
-];
+import { dataService } from '../../lib/services/data.service';
+import type { HangmanWord } from '../../lib/types';
 
 export function HangmanGame() {
   const navigate = useNavigate();
+  const [words, setWords] = useState<HangmanWord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
 
-  const currentWord = WORDS[currentWordIndex];
-  const maxWrong = 6;
-
-  if (!currentWord) {
-    return null;
-  }
+  useEffect(() => {
+    let cancelled = false;
+    dataService
+      .getHangmanWords()
+      .then((data) => {
+        if (!cancelled) setWords([...data]);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load words');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const resetGame = () => {
     setGuessedLetters([]);
@@ -35,9 +41,45 @@ export function HangmanGame() {
   };
 
   useEffect(() => {
-    resetGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWordIndex]);
+    if (words.length > 0) resetGame();
+  }, [currentWordIndex, words.length]);
+
+  const completedChoreOnWinRef = useRef(false);
+  useEffect(() => {
+    if (gameStatus !== 'won' || completedChoreOnWinRef.current) return;
+    completedChoreOnWinRef.current = true;
+    dataService
+      .getDailyChores()
+      .then((chores) => {
+        const hangmanChore = chores.find((c) =>
+          c.task.toLowerCase().includes('hangman')
+        );
+        if (hangmanChore) return dataService.completeChore(hangmanChore.id);
+      })
+      .catch((e) => console.error('Complete Hangman chore', e));
+  }, [gameStatus]);
+
+  const currentWord = words[currentWordIndex];
+  const maxWrong = 6;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <p className="text-[#8B4513] font-medium">Loading words…</p>
+      </div>
+    );
+  }
+  if (error || !words.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
+        <p className="text-red-600">{error ?? 'No words available'}</p>
+        <Button onClick={() => navigate('/dashboard')}>Back to Stable</Button>
+      </div>
+    );
+  }
+  if (!currentWord) {
+    return null;
+  }
 
   const handleGuess = (letter: string) => {
     if (gameStatus !== 'playing' || guessedLetters.includes(letter)) return;
@@ -162,10 +204,9 @@ export function HangmanGame() {
               </p>
               <div className="flex gap-4 justify-center">
                 <Button onClick={() => {
-                   if (currentWordIndex < WORDS.length - 1) {
-                     setCurrentWordIndex(curr => curr + 1);
+                   if (currentWordIndex < words.length - 1) {
+                     setCurrentWordIndex((curr) => curr + 1);
                    } else {
-                     // Wrap around or finish
                      setCurrentWordIndex(0);
                    }
                 }}>

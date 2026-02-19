@@ -349,8 +349,8 @@ Run in SQL Editor after schema creation:
 INSERT INTO public.milestones (id, title, topic, icon, sort_order, map_x, map_y) VALUES
   (1, 'Training Arena', 'SDLC & DevOps', '🏟️', 1, 10, 80),
   (2, 'Feed Storage', 'Data & SQL', '🥕', 2, 30, 60),
-  (3, 'Pasture Fields', 'Cloud Infra', '☁️', 3, 20, 30),
-  (4, 'Stable Complex', 'System Design', '🏠', 4, 50, 15),
+  (3, 'Pasture Fields', 'Cloud Infra', '☁️', 3, 28, 36),
+  (4, 'Stable Complex', 'System Design', '🏠', 4, 50, 24),
   (5, 'Riding Trails', 'APIs & Integrations', '🛤️', 5, 75, 30),
   (6, 'Breeding Barn', 'Machine Learning', '🧬', 6, 65, 65),
   (7, 'Show Arena', 'GenAI & LLMs', '✨', 7, 90, 85);

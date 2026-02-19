@@ -1,22 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router';
 import { Lock, Star } from 'lucide-react';
 import { dataService } from '../../lib/services/data.service';
-import type { Milestone } from '../../lib/types';
+import { DEFAULT_AVATAR_URL, MAP_IMAGE_URL } from '../../lib/assets';
+import type { Milestone, User } from '../../lib/types';
 
 export function MilestoneMap() {
   const navigate = useNavigate();
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    dataService
-      .getMilestones()
-      .then((data) => {
-        if (!cancelled) setMilestones([...data]);
+    Promise.all([dataService.getMilestones(), dataService.getCurrentUser()])
+      .then(([data, user]) => {
+        if (!cancelled) {
+          setMilestones([...data]);
+          setProfile(user);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -31,6 +35,30 @@ export function MilestoneMap() {
       cancelled = true;
     };
   }, []);
+
+  const avatarPosition = useMemo(() => {
+    const offsetLeft = 2;
+    const offsetDown = 3;
+    let x: number, y: number;
+    const inProgress = milestones.find((m) => m.status === 'in-progress');
+    if (inProgress != null) {
+      x = inProgress.mapX ?? 50;
+      y = inProgress.mapY ?? 50;
+    } else {
+      const completed = [...milestones].filter((m) => m.status === 'completed').pop();
+      if (completed != null) {
+        x = completed.mapX ?? 50;
+        y = completed.mapY ?? 50;
+      } else {
+        const first = milestones[0];
+        x = first?.mapX ?? 50;
+        y = first?.mapY ?? 50;
+      }
+    }
+    return { x: x - offsetLeft, y: y + offsetDown };
+  }, [milestones]);
+
+  const avatarUrl = profile?.avatarUrl || DEFAULT_AVATAR_URL;
 
   if (loading) {
     return (
@@ -50,7 +78,11 @@ export function MilestoneMap() {
 
   return (
     <div className="relative w-full h-[80vh] bg-[#FFFDD0] rounded-3xl overflow-hidden border-4 border-[#8B4513] shadow-2xl">
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none" />
+      {MAP_IMAGE_URL ? (
+        <div className="absolute inset-0 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url(${MAP_IMAGE_URL})` }} />
+      ) : (
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none" />
+      )}
 
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         <path
@@ -85,7 +117,7 @@ export function MilestoneMap() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: i * 0.1 }}
-            onClick={() => m.status !== 'locked' && navigate('/lesson')}
+            onClick={() => m.status !== 'locked' && navigate(`/lesson/${m.id}`)}
           >
             <div
               className={`
@@ -114,16 +146,18 @@ export function MilestoneMap() {
       })}
 
       <motion.div
-        className="absolute w-12 h-12 z-20 pointer-events-none"
-        style={{ left: '30%', top: '60%' }}
-        animate={{ y: [0, -10, 0] }}
-        transition={{ repeat: Infinity, duration: 2 }}
+        className="absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
+        style={{ left: `${avatarPosition.x}%`, top: `${avatarPosition.y}%` }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1, y: [0, -8, 0] }}
+        transition={{ scale: { duration: 0.3 }, y: { repeat: Infinity, duration: 2 } }}
       >
-        <div className="w-10 h-10 bg-[#FFB6C1] rounded-full border-2 border-[#fff] shadow-xl overflow-hidden">
-          <img
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-            alt="Player"
-          />
+        <div className="w-12 h-12 bg-[#FFB6C1] rounded-full border-2 border-[#FFFDD0] shadow-xl overflow-hidden flex items-center justify-center">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="You" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-xl">🐴</span>
+          )}
         </div>
       </motion.div>
 

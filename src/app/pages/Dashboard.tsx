@@ -18,22 +18,25 @@ export function Dashboard() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [chores, setChores] = useState<DailyChore[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [horsesCount, setHorsesCount] = useState<{ collected: number; total: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setError(null);
     try {
-      const [userData, milestonesData, choresData, leaderboardData] = await Promise.all([
+      const [userData, milestonesData, choresData, leaderboardData, horses] = await Promise.all([
         dataService.getCurrentUser(),
         dataService.getMilestones(),
         dataService.getDailyChores(),
         dataService.getLeaderboard(10),
+        dataService.getHorsesCount(),
       ]);
       setUser(userData);
       setMilestones([...milestonesData]);
       setChores([...choresData]);
       setLeaderboard([...leaderboardData]);
+      setHorsesCount(horses);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard');
       console.error('Dashboard load error:', e);
@@ -81,13 +84,15 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <WelcomeBanner
-        user={user}
-        onContinueLearning={() => navigate('/lesson')}
-        onViewQuests={() => {}}
-      />
+      <div data-tour="welcome-banner">
+        <WelcomeBanner
+          user={user}
+          milestones={milestones}
+          onContinueLearning={() => navigate('/lesson/1')}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-tour="stats">
         <StatsCard
           icon="⭐"
           label="Experience Points"
@@ -103,7 +108,7 @@ export function Dashboard() {
         <StatsCard
           icon="🐎"
           label="Horses Collected"
-          value="—"
+          value={horsesCount ? `${horsesCount.collected}/${horsesCount.total}` : '—'}
           subtitle="Collect 'em all!"
         />
       </div>
@@ -118,13 +123,13 @@ export function Dashboard() {
               View Full Map
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-tour="milestone-card">
             {milestones.map((milestone) => (
               <MilestoneCard
                 key={milestone.id}
                 milestone={milestone}
                 onClick={() =>
-                  milestone.status !== 'locked' && navigate('/lesson')
+                  milestone.status !== 'locked' && navigate(`/lesson/${milestone.id}`)
                 }
               />
             ))}
@@ -132,19 +137,27 @@ export function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          <Card variant="stable">
+          <Card variant="stable" data-tour="chores">
             <CardHeader>
               <CardTitle>Daily Chores</CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {chores.map((chore) => (
-                  <ChoreItem
-                    key={chore.id}
-                    chore={chore}
-                    onToggle={chore.completed ? undefined : handleChoreToggle}
-                  />
-                ))}
+                {chores.map((chore) => {
+                  const isHangmanChore = chore.task.toLowerCase().includes('hangman');
+                  return (
+                    <ChoreItem
+                      key={chore.id}
+                      chore={chore}
+                      onToggle={
+                        chore.completed || isHangmanChore ? undefined : handleChoreToggle
+                      }
+                      onNavigate={
+                        isHangmanChore ? () => navigate('/game/hangman') : undefined
+                      }
+                    />
+                  );
+                })}
               </ul>
             </CardContent>
           </Card>
