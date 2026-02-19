@@ -12,6 +12,9 @@ export interface Milestone {
   status: MilestoneStatus;
   progress?: number; // 0-100, only for in-progress
   completedAt?: Date; // only for completed
+  /** Map position (percentage). Used by MilestoneMap. */
+  mapX?: number;
+  mapY?: number;
 }
 
 export interface MilestoneWithProgress extends Milestone {

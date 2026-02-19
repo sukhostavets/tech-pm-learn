@@ -80,7 +80,7 @@ export class SupabaseDataService implements IDataService {
     } = await db.auth.getUser();
     const { data: milestones, error: milestonesError } = await db
       .from('milestones')
-      .select('id, title, topic, icon, sort_order')
+      .select('id, title, topic, icon, sort_order, map_x, map_y')
       .order('sort_order');
     if (milestonesError) throw milestonesError;
     if (!milestones?.length) return [];
@@ -92,6 +92,8 @@ export class SupabaseDataService implements IDataService {
         topic: m.topic,
         icon: m.icon,
         status: 'locked' as const,
+        mapX: m.map_x != null ? Number(m.map_x) : undefined,
+        mapY: m.map_y != null ? Number(m.map_y) : undefined,
       }));
     }
 
@@ -114,6 +116,8 @@ export class SupabaseDataService implements IDataService {
         status: (p?.status ?? 'locked') as Milestone['status'],
         progress: p?.progress ?? 0,
         completedAt: p?.completed_at ? new Date(p.completed_at) : undefined,
+        mapX: m.map_x != null ? Number(m.map_x) : undefined,
+        mapY: m.map_y != null ? Number(m.map_y) : undefined,
       };
     });
   }
@@ -122,7 +126,7 @@ export class SupabaseDataService implements IDataService {
     const db = getSupabase();
     const { data: milestone, error: milestoneError } = await db
       .from('milestones')
-      .select('id, title, topic, icon, sort_order')
+      .select('id, title, topic, icon, sort_order, map_x, map_y')
       .eq('id', id)
       .single();
     if (milestoneError || !milestone) return null;
@@ -156,6 +160,8 @@ export class SupabaseDataService implements IDataService {
       status,
       progress,
       completedAt,
+      mapX: milestone.map_x != null ? Number(milestone.map_x) : undefined,
+      mapY: milestone.map_y != null ? Number(milestone.map_y) : undefined,
     };
   }
 
@@ -271,5 +277,21 @@ export class SupabaseDataService implements IDataService {
 
   async getRewardById(_rewardId: string): Promise<Reward | null> {
     return null;
+  }
+
+  async completeChore(choreId: string): Promise<void> {
+    const db = getSupabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    const choreIdNum = parseInt(choreId, 10);
+    if (Number.isNaN(choreIdNum)) throw new Error('Invalid chore id');
+    const today = new Date().toISOString().slice(0, 10);
+    const { error } = await db.from('user_chores').upsert(
+      { user_id: user.id, chore_id: choreIdNum, completed_at: today },
+      { onConflict: 'user_id,chore_id,completed_at' }
+    );
+    if (error) throw error;
   }
 }
