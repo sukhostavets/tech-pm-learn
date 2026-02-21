@@ -1,11 +1,7 @@
 import { useState, useLayoutEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataService } from '../../../lib/services/data.service';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
-const MASCOT_IMAGE_URL =
-  import.meta.env.VITE_MASCOT_IMAGE_URL ||
-  (supabaseUrl ? `${supabaseUrl}/storage/v1/object/public/public-assets/bit_farmer.png` : '');
+import { MASCOT_IMAGE_URL } from '../../../lib/assets';
 
 export interface TourStep {
   id: string;
@@ -108,25 +104,34 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
     dataService.setTutorialCompleted().then(onComplete);
   }, [onComplete]);
 
-  const padding = 4;
+  const padding = 8;
+  const radius = 16;
   const hasSpotlight = spotlightRect != null;
 
   return (
     <div className="fixed inset-0 z-[100] pointer-events-auto" aria-modal="true" role="dialog" aria-label="Onboarding tour">
-      {/* Dimmed overlay with cutout: four panels so the highlighted area stays clear */}
+      {/* Dimmed overlay: box-shadow cutout so the hole has rounded corners and uniform shade */}
       {hasSpotlight ? (
         <>
-          <div className="absolute left-0 top-0 right-0 bg-black/70" style={{ height: spotlightRect.top - padding }} />
-          <div className="absolute left-0 bg-black/50" style={{ top: spotlightRect.top - padding, width: spotlightRect.left - padding, height: spotlightRect.height + padding * 2 }} />
-          <div className="absolute right-0 bg-black/50" style={{ top: spotlightRect.top - padding, left: spotlightRect.right + padding, height: spotlightRect.height + padding * 2 }} />
-          <div className="absolute left-0 right-0 bottom-0 bg-black/50" style={{ top: spotlightRect.bottom + padding }} />
           <div
-            className="absolute pointer-events-none border-2 border-[#FF69B4] rounded-lg shadow-[0_0_0_4px_rgba(255,105,180,0.4)] transition-[top,left,width,height] duration-200"
+            className="absolute pointer-events-none transition-[top,left,width,height] duration-200"
             style={{
               top: spotlightRect.top - padding,
               left: spotlightRect.left - padding,
               width: spotlightRect.width + padding * 2,
               height: spotlightRect.height + padding * 2,
+              borderRadius: radius,
+              boxShadow: `0 0 0 9999px rgba(0,0,0,0.5)`,
+            }}
+          />
+          <div
+            className="absolute pointer-events-none border-2 border-[#FF69B4] rounded-xl shadow-[0_0_0_4px_rgba(255,105,180,0.4)] transition-[top,left,width,height] duration-200"
+            style={{
+              top: spotlightRect.top - padding,
+              left: spotlightRect.left - padding,
+              width: spotlightRect.width + padding * 2,
+              height: spotlightRect.height + padding * 2,
+              borderRadius: radius,
             }}
           />
         </>

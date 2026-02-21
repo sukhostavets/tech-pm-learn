@@ -14,16 +14,24 @@ export function HangmanGame() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [showHint, setShowHint] = useState(false);
   const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+
+  const pickRandomIndex = (wordList: HangmanWord[]) =>
+    wordList.length > 0 ? Math.floor(Math.random() * wordList.length) : 0;
 
   useEffect(() => {
     let cancelled = false;
     dataService
       .getHangmanWords()
       .then((data) => {
-        if (!cancelled) setWords([...data]);
+        const list = [...data];
+        if (!cancelled && list.length) {
+          setWords(list);
+          setCurrentWordIndex(pickRandomIndex(list));
+        } else if (!cancelled) setWords(list);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load words');
@@ -37,6 +45,7 @@ export function HangmanGame() {
   const resetGame = () => {
     setGuessedLetters([]);
     setWrongGuesses(0);
+    setShowHint(false);
     setGameStatus('playing');
   };
 
@@ -111,9 +120,6 @@ export function HangmanGame() {
         <Button variant="ghost" onClick={() => navigate('/dashboard')}>
           <ArrowLeft className="mr-2" /> Back to Stable
         </Button>
-        <div className="bg-[#FFF8DC] px-4 py-2 rounded-lg border border-[#D2B48C] font-bold text-[#8B4513]">
-          Level {currentWordIndex + 1}
-        </div>
       </div>
 
       <Card className="w-full max-w-2xl bg-[#FFFDD0] border-4 border-[#8B4513] p-8 relative overflow-hidden">
@@ -145,9 +151,24 @@ export function HangmanGame() {
 
           {/* Word Display */}
           <div className="flex flex-col items-center">
-             <p className="text-sm text-[#8B4513] mb-4 bg-[#FFB6C1]/30 px-3 py-1 rounded-full">
-               Hint: {currentWord.hint}
-             </p>
+             {currentWord.hint && (
+               <div className="mb-4 flex flex-col items-center gap-2">
+                 {!showHint ? (
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setShowHint(true)}
+                     className="border-[#D2B48C] text-[#8B4513] hover:bg-[#FFB6C1]/30"
+                   >
+                     Show hint
+                   </Button>
+                 ) : (
+                   <p className="text-sm text-[#8B4513] bg-[#FFB6C1]/30 px-3 py-1 rounded-full">
+                     Hint: {currentWord.hint}
+                   </p>
+                 )}
+               </div>
+             )}
              <div className="flex gap-2 flex-wrap justify-center">
                {currentWord.word.split('').map((char, i) => (
                  <div key={i} className="w-10 h-12 border-b-4 border-[#654321] flex items-center justify-center text-2xl font-bold text-[#654321]">
@@ -203,14 +224,8 @@ export function HangmanGame() {
                   : `The word was ${currentWord.word}. The rider fell off!`}
               </p>
               <div className="flex gap-4 justify-center">
-                <Button onClick={() => {
-                   if (currentWordIndex < words.length - 1) {
-                     setCurrentWordIndex((curr) => curr + 1);
-                   } else {
-                     setCurrentWordIndex(0);
-                   }
-                }}>
-                  {gameStatus === 'won' ? 'Next Level' : 'Try Again'}
+                <Button onClick={() => setCurrentWordIndex(pickRandomIndex(words))}>
+                  {gameStatus === 'won' ? 'Next word' : 'Try again'}
                 </Button>
                 <Button variant="outline" onClick={() => navigate('/dashboard')}>
                   Quit

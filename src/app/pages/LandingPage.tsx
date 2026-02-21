@@ -11,7 +11,7 @@ import {
 } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { useAuth } from '../../lib/auth/authContext';
-import { APP_LOGO_URL } from '../../lib/assets';
+import { API_WHISPERER_IMAGE_URL, APP_LOGO_URL } from '../../lib/assets';
 import { motion } from 'motion/react';
 import { ArrowRight, BookOpen, Trophy, Users } from 'lucide-react';
 
@@ -92,11 +92,6 @@ export function LandingPage() {
           </div>
           <span className="font-bold text-xl text-[#8B4513]">Tech Stable Academy</span>
         </div>
-        <div className="hidden md:flex items-center gap-6">
-          <a href="#features" className="hover:text-[#FF69B4] font-medium transition-colors">Features</a>
-          <a href="#how-it-works" className="hover:text-[#FF69B4] font-medium transition-colors">How It Works</a>
-          <a href="#pricing" className="hover:text-[#FF69B4] font-medium transition-colors">Pricing</a>
-        </div>
         <div className="flex items-center gap-4">
           {!loading && user ? (
             <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
@@ -141,9 +136,6 @@ export function LandingPage() {
               >
                 Start Your Journey <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8">
-                View Demo
-              </Button>
             </div>
             <div className="mt-8 flex items-center gap-4 text-sm text-[#8B4513]/80">
               <div className="flex -space-x-2">
@@ -164,8 +156,8 @@ export function LandingPage() {
              {/* Mockup / Image */}
              <div className="relative z-10 bg-white p-4 rounded-2xl shadow-2xl border-4 border-[#FFFDD0] transform rotate-2 hover:rotate-0 transition-transform duration-500">
                <img 
-                 src="https://images.unsplash.com/photo-1448346325971-67fa7313079a?ixlib=rb-4.1.0&q=80&w=1080" 
-                 alt="Stable Dashboard" 
+                 src={API_WHISPERER_IMAGE_URL} 
+                 alt="API Whisperer" 
                  className="rounded-xl w-full h-auto object-cover aspect-video"
                />
                <div className="absolute -bottom-6 -right-6 bg-[#FFFDD0] p-4 rounded-xl shadow-lg border border-[#D2B48C] flex items-center gap-3">
@@ -243,7 +235,7 @@ export function LandingPage() {
           >
             Create Your Free Stable
           </Button>
-          <p className="mt-4 text-sm text-[#D2B48C]">No credit card required • Cancel anytime</p>
+          <p className="mt-4 text-sm text-[#D2B48C]">• No credit card required •</p>
         </div>
         
         {/* Background Pattern */}
@@ -254,7 +246,7 @@ export function LandingPage() {
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2">
             {APP_LOGO_URL ? (
-              <img src={APP_LOGO_URL} alt="" className="h-8 w-8 object-contain" />
+              <img src={APP_LOGO_URL} alt="" className="h-8 w-8 rounded-full object-cover aspect-square" />
             ) : (
               <div className="text-2xl">🐴</div>
             )}
@@ -262,11 +254,6 @@ export function LandingPage() {
           </div>
           <div className="text-sm">
             © 2024 Tech Stable Academy. All rights reserved.
-          </div>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-[#FF69B4]">Terms</a>
-            <a href="#" className="hover:text-[#FF69B4]">Privacy</a>
-            <a href="#" className="hover:text-[#FF69B4]">Contact</a>
           </div>
         </div>
       </footer>

@@ -1,4 +1,4 @@
-import { cn } from './Button';
+import { cn } from './utils';
 import { motion } from 'motion/react';
 
 interface ProgressBarProps {

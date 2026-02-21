@@ -414,30 +414,9 @@ INSERT INTO public.badges (name, description, icon, criteria) VALUES
   ('Stable Master', 'Complete all milestones', '👑', 'complete_all');
 ```
 
-### Step 6: Create Storage Bucket for Project Uploads
+### Step 6: Create Storage Bucket for Project Uploads (deferred for MVP)
 
-In Supabase Dashboard → Storage:
-
-1. Create bucket: `project-submissions`
-2. Set to **private** (only authenticated users via RLS)
-3. Add policy: Users can upload to their own folder
-
-```sql
--- Storage policy (run in SQL editor)
-CREATE POLICY "Users can upload own submissions"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'project-submissions'
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can view own submissions"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'project-submissions'
-    AND auth.uid()::text = (storage.foldername(name))[1]
-  );
-```
+Project submission is out of scope for MVP. Skip this step until you reintroduce project uploads. When needed: create bucket `project-submissions`, set private, add RLS policies for user-scoped upload/select. See [supabase-data-access-audit.md](./supabase-data-access-audit.md) removal plan.
 
 ### Step 7: Enable Auth Providers
 
@@ -448,164 +427,11 @@ In Supabase Dashboard → Authentication → Providers:
 
 ### Step 8: Create Auth Context in React ✅
 
-Implemented in `src/lib/auth/authContext.tsx` and `src/lib/auth/ProtectedRoute.tsx`. When Supabase is not configured, auth methods no-op and `isConfigured` is false so the app works with static data.
+**Done.** Implemented in `src/lib/auth/authContext.tsx` and `src/lib/auth/ProtectedRoute.tsx`. App is wrapped in `AuthProvider` in `main.tsx`. Login/signup on `LandingPage`, protected routes via `ProtectedRoute`.
 
-Create `src/lib/auth/authContext.tsx` (reference):
+### Step 9: Implement SupabaseDataService ✅
 
-```typescript
-import { createContext, useContext, useEffect, useState } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../supabase';
-
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  };
-
-  const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
-    });
-    if (error) throw error;
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
-};
-```
-
-### Step 9: Implement SupabaseDataService
-
-Replace `StaticDataService` with `SupabaseDataService` in `src/lib/services/data.service.ts`:
-
-```typescript
-import { supabase } from '../supabase';
-import type { IDataService } from './data.service';
-
-class SupabaseDataService implements IDataService {
-  async getQuestions(topic?: string) {
-    let query = supabase.from('questions').select('*');
-    if (topic) query = query.eq('topic', topic);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []).map(q => ({
-      id: q.id,
-      question: q.question,
-      options: q.options as string[],
-      correct: q.correct_index,
-      explanation: q.explanation,
-    }));
-  }
-
-  async getHangmanWords() {
-    const { data, error } = await supabase.from('hangman_words').select('word, hint');
-    if (error) throw error;
-    return data ?? [];
-  }
-
-  async getMilestones() {
-    const user = (await supabase.auth.getUser()).data.user;
-    const { data: milestones } = await supabase
-      .from('milestones')
-      .select('*, user_milestones(*)')
-      .order('sort_order');
-    // Map to Milestone type with user progress
-    return (milestones ?? []).map(m => ({
-      id: m.id,
-      title: m.title,
-      topic: m.topic,
-      icon: m.icon,
-      status: m.user_milestones?.[0]?.status ?? 'locked',
-      progress: m.user_milestones?.[0]?.progress ?? 0,
-      completedAt: m.user_milestones?.[0]?.completed_at,
-    }));
-  }
-
-  async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    return {
-      id: data.id,
-      name: data.name,
-      stableName: data.stable_name,
-      level: data.level,
-      xp: data.xp,
-      nextLevelXp: data.next_level_xp,
-      streak: data.streak,
-      avatarUrl: data.avatar_url,
-      joinDate: new Date(data.created_at),
-    };
-  }
-
-  async getLeaderboard(limit = 10) {
-    const { data } = await supabase
-      .from('leaderboard')
-      .select('*')
-      .limit(limit);
-    return (data ?? []).map(entry => ({
-      name: entry.name,
-      xp: entry.xp,
-      rank: entry.rank,
-    }));
-  }
-
-  // ... implement remaining methods following same pattern
-}
-```
+**Done.** `SupabaseDataService` in `src/lib/services/supabase-data.service.ts` implements `IDataService`. Exported as `dataService` from `src/lib/services/data.service.ts`. All core reads/writes (getCurrentUser, getMilestones, getDailyChores, completeChore, recordQuizAttempt, setMilestoneInProgress, updateProfile, getHorsesCount, hay coins, etc.) are implemented.
 
 ### Step 10: Generate TypeScript Types from Supabase
 
@@ -619,39 +445,25 @@ This auto-generates a `Database` type that gives you full type safety on all Sup
 
 ## Implementation Order (Recommended)
 
-### Phase 1: Foundation (Day 1)
-1. ✅ Create Supabase project
-2. ✅ Run schema SQL
-3. ✅ Seed content data
-4. ✅ Install `@supabase/supabase-js`
-5. ✅ Create `supabase.ts` client
-6. ✅ Generate TypeScript types
+### Phase 1: Foundation ✅
+Create project, run schema SQL, seed content, install client, create `supabase.ts`, generate types — all done.
 
-### Phase 2: Auth (Day 1-2)
-1. Enable auth providers in dashboard (Supabase Dashboard → Authentication → Providers)
-2. ✅ Create `AuthContext` and `AuthProvider` (`src/lib/auth/authContext.tsx`)
-3. ✅ Wrap app in `AuthProvider` (`main.tsx`)
-4. ✅ Add login/signup flow to `LandingPage` (email/password modals)
-5. ✅ Protect routes via `ProtectedRoute` (redirect to `/` when Supabase configured and not authenticated)
+### Phase 2: Auth ✅
+Auth providers, `AuthContext`/`AuthProvider`, login/signup on Landing, `ProtectedRoute` — all done.
 
-### Phase 3: Data Migration (Day 2-3)
-1. ✅ Implement `SupabaseDataService` (`src/lib/services/supabase-data.service.ts`)
-2. ✅ Swap to `SupabaseDataService` when `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set; otherwise fall back to `StaticDataService` so the app runs without backend
-3. Test each page still works (with auth for dashboard when using Supabase)
-4. Remove static data files (or keep as fallback)
+### Phase 3: Data Migration ✅
+`SupabaseDataService` implemented and used; dashboard, map, lesson, quiz, hangman, profile, chores, leaderboard all use it.
 
-### Phase 4: User State (Day 3-4)
-1. Save quiz attempts to `quiz_attempts` table
-2. Track milestone progress in `user_milestones`
-3. Implement XP/level calculations
-4. Implement streak tracking
-5. Wire up daily chores completion
+### Phase 4: User State (remaining)
+1. ✅ Quiz attempts → `quiz_attempts`; milestone completion → `user_milestones`; XP update on quiz pass
+2. **Level-up logic** — profile has `level` and `next_level_xp`; need to bump level when XP crosses threshold (or use Edge Function)
+3. **Streak tracking** — update `profiles.streak` and `last_activity_date` on activity (e.g. daily login or chore/quiz completion)
+4. ✅ Daily chores completion wired
+5. **Horse unlock** — on milestone completion (e.g. quiz pass), insert into `user_horses` for the milestone’s horse if any
 
-### Phase 5: Storage & Extras (Day 4-5)
-1. Set up Storage bucket
-2. Implement file upload in `ProjectSubmission` page
-3. Wire up leaderboard with real-time subscription
-4. Implement horse unlocking on milestone completion
+### Phase 5: Extras (remaining, project submission removed for MVP)
+1. Optional: leaderboard real-time subscription; horse unlock (see Phase 4).  
+   Storage and project submission are deferred; see [supabase-data-access-audit.md](./supabase-data-access-audit.md) removal plan.
 
 ---
 
@@ -698,7 +510,6 @@ Before running the app against Supabase locally, confirm:
 | profiles | Auto-created + user edits | Everyone (leaderboard) |
 | user_milestones | User (via app) | Owner only |
 | quiz_attempts | User (via app) | Owner only |
-| project_submissions | User (via app) | Owner only |
 
 ### Environment Setup
 

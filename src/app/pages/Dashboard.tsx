@@ -9,6 +9,8 @@ import {
   ChoreItem,
   LeaderboardItem,
 } from '../components/dashboard';
+import { LoadingView } from '../components/ui/LoadingView';
+import { ErrorView } from '../components/ui/ErrorView';
 import { dataService } from '../../lib/services/data.service';
 import type { User, Milestone, DailyChore, LeaderboardEntry } from '../../lib/types';
 
@@ -66,19 +68,16 @@ export function Dashboard() {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <p className="text-[#8B4513] font-medium">Loading your stable…</p>
-      </div>
-    );
+    return <LoadingView message="Loading your stable…" />;
   }
 
   if (error || !user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
-        <p className="text-red-600">{error ?? 'Something went wrong'}</p>
-        <Button onClick={loadData}>Try again</Button>
-      </div>
+      <ErrorView
+        message={error ?? 'Something went wrong'}
+        onRetry={loadData}
+        retryLabel="Try again"
+      />
     );
   }
 

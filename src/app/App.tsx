@@ -11,7 +11,6 @@ import { LessonView } from './pages/LessonView';
 import { QuizPage } from './pages/QuizPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { HangmanGame } from './pages/HangmanGame';
-import { ProjectSubmission } from './pages/ProjectSubmission';
 
 // Simple placeholder for pages not yet implemented
 const Placeholder = ({ title }: { title: string }) => (
@@ -42,7 +41,6 @@ function AppContent() {
               <Route path="/quiz" element={<QuizPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/game/hangman" element={<HangmanGame />} />
-              <Route path="/project/submission" element={<ProjectSubmission />} />
               <Route path="/achievements" element={<Placeholder title="Achievements Gallery" />} />
             </Routes>
           </Layout>

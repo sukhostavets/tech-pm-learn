@@ -17,7 +17,7 @@ This document catalogs all reusable components in the codebase, organized by cat
 | `Button` | Styled button with variants (primary, secondary, outline, ghost, danger) | Used throughout app |
 | `Card`, `CardHeader`, `CardTitle`, `CardContent` | Card container components | Dashboard, Profile, etc. |
 | `ProgressBar` | Progress indicator with animation | Dashboard, Profile, Lessons |
-| `Input`, `Textarea` | Form input fields | Forms, ProjectSubmission |
+| `Input`, `Textarea` | Form input fields | Forms |
 | `Select`, `Checkbox`, `RadioGroup` | Form controls | Forms |
 | `Dialog`, `AlertDialog` | Modal dialogs | Confirmation dialogs |
 | `Tooltip`, `Popover` | Overlay components | Hover information |
@@ -142,7 +142,7 @@ This document catalogs all reusable components in the codebase, organized by cat
 #### 12. `FileUpload`
 **Purpose**: File upload area  
 **Props**: `onFileSelect`, `accept?`, `maxSize?`  
-**Usage**: ProjectSubmission  
+**Usage**: Forms (file upload flows)  
 **Location**: `src/app/components/ui/FileUpload.tsx`
 
 #### 13. `RewardCard`

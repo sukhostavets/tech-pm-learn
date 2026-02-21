@@ -135,9 +135,54 @@ export type Database = {
           },
         ]
       }
+      lessons: {
+        Row: {
+          content_markdown: string
+          created_at: string
+          estimated_minutes: number
+          id: number
+          key_terms: string | null
+          milestone_id: number
+          sort_order: number
+          subtitle: string
+          title: string
+        }
+        Insert: {
+          content_markdown: string
+          created_at?: string
+          estimated_minutes?: number
+          id?: number
+          key_terms?: string | null
+          milestone_id: number
+          sort_order?: number
+          subtitle?: string
+          title: string
+        }
+        Update: {
+          content_markdown?: string
+          created_at?: string
+          estimated_minutes?: number
+          id?: number
+          key_terms?: string | null
+          milestone_id?: number
+          sort_order?: number
+          subtitle?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       milestones: {
         Row: {
           created_at: string
+          description: string
           icon: string
           id: number
           map_x: number
@@ -145,9 +190,11 @@ export type Database = {
           sort_order: number
           title: string
           topic: string
+          total_lessons: number
         }
         Insert: {
           created_at?: string
+          description?: string
           icon?: string
           id?: number
           map_x?: number
@@ -155,9 +202,11 @@ export type Database = {
           sort_order?: number
           title: string
           topic: string
+          total_lessons?: number
         }
         Update: {
           created_at?: string
+          description?: string
           icon?: string
           id?: number
           map_x?: number
@@ -165,6 +214,7 @@ export type Database = {
           sort_order?: number
           title?: string
           topic?: string
+          total_lessons?: number
         }
         Relationships: []
       }
@@ -290,9 +340,11 @@ export type Database = {
           difficulty: string | null
           explanation: string
           id: number
+          lesson_id: number | null
           milestone_id: number | null
           options: Json
           question: string
+          question_type: string
           topic: string
         }
         Insert: {
@@ -301,9 +353,11 @@ export type Database = {
           difficulty?: string | null
           explanation?: string
           id?: number
+          lesson_id?: number | null
           milestone_id?: number | null
           options?: Json
           question: string
+          question_type?: string
           topic: string
         }
         Update: {
@@ -312,12 +366,21 @@ export type Database = {
           difficulty?: string | null
           explanation?: string
           id?: number
+          lesson_id?: number | null
           milestone_id?: number | null
           options?: Json
           question?: string
+          question_type?: string
           topic?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "questions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "questions_milestone_id_fkey"
             columns: ["milestone_id"]
@@ -381,6 +444,44 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resources: {
+        Row: {
+          created_at: string
+          description: string
+          id: number
+          milestone_id: number
+          source_type: string
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: number
+          milestone_id: number
+          source_type?: string
+          title: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: number
+          milestone_id?: number
+          source_type?: string
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "milestones"
             referencedColumns: ["id"]
           },
         ]
@@ -513,6 +614,49 @@ export type Database = {
           },
           {
             foreignKeyName: "user_horses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_lessons: {
+        Row: {
+          completed_at: string
+          id: string
+          lesson_id: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          lesson_id: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          lesson_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_lessons_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_lessons_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_lessons_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

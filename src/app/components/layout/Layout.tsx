@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router';
-import { cn } from '../ui/Button';
+import { cn } from '../ui/utils';
 import { useAuth } from '../../../lib/auth/authContext';
 import { dataService } from '../../../lib/services/data.service';
 import type { User } from '../../../lib/types';
@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   LogOut,
+  Gamepad2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -51,6 +52,7 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { icon: Home, label: 'Stable Hub', path: '/dashboard' },
     { icon: Map, label: 'Milestone Map', path: '/map' },
+    { icon: Gamepad2, label: 'Hangman', path: '/game/hangman' },
     { icon: Trophy, label: 'Achievements', path: '/achievements' },
     { icon: UserIcon, label: 'Profile', path: '/profile' },
   ];
@@ -91,16 +93,16 @@ export function Layout({ children }: LayoutProps) {
             animate={{ x: 0 }}
             exit={{ x: -280 }}
             className={cn(
-              "fixed md:sticky top-0 left-0 h-screen w-64 bg-[#8B4513] text-[#FFFDD0] shadow-xl z-40 flex flex-col border-r-4 border-[#654321]",
+              "fixed md:sticky top-0 left-0 h-screen w-64 flex-shrink-0 bg-[#8B4513] text-[#FFFDD0] shadow-xl z-40 flex flex-col border-r-4 border-[#654321]",
               "md:translate-x-0" // Always visible on desktop
             )}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             {/* Logo Area */}
             <div className="p-6 flex items-center gap-3 border-b border-[#a05218]">
-              <div className="flex items-center justify-center w-9 h-9 flex-shrink-0 overflow-hidden">
+              <div className="flex items-center justify-center w-9 h-9 flex-shrink-0 overflow-hidden rounded-full">
                 {APP_LOGO_URL ? (
-                  <img src={APP_LOGO_URL} alt="" className="w-full h-full object-contain" />
+                  <img src={APP_LOGO_URL} alt="" className="w-full h-full object-cover rounded-full" />
                 ) : (
                   <span className="text-2xl">🐴</span>
                 )}
@@ -172,7 +174,7 @@ export function Layout({ children }: LayoutProps) {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-[calc(100vh-64px)] md:h-screen overflow-y-auto bg-[#FFFDD0]">
+      <main className="flex-1 min-w-0 flex flex-col h-[calc(100vh-64px)] md:h-screen overflow-y-auto bg-[#FFFDD0]">
         {/* Desktop Top Bar */}
         <div className="hidden md:flex min-h-[4.5rem] py-3 bg-[#FFFDD0] border-b border-[#D2B48C] items-center justify-between px-8 sticky top-0 z-30">
           <h2 className="font-bold text-xl text-[#8B4513]">
