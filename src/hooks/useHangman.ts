@@ -103,6 +103,16 @@ export function useHangman({
     resetCurrentWord();
   }, [state.currentWordIndex, resetCurrentWord]);
 
+  // Reset to the first word when a new word list is provided.
+  useEffect(() => {
+    setState({
+      currentWordIndex: 0,
+      guessedLetters: [],
+      wrongGuesses: 0,
+      gameStatus: 'playing',
+    });
+  }, [words]);
+
   const guessLetter = useCallback((letter: string) => {
     setState(prev => {
       if (prev.gameStatus !== 'playing' || prev.guessedLetters.includes(letter)) {
@@ -119,7 +129,10 @@ export function useHangman({
       // Check if won
       const isWon = currentWord.word
         .split('')
-        .every(char => newGuessedLetters.includes(char));
+        .every((char) => {
+          if (char === ' ' || /[^A-Za-z0-9]/.test(char)) return true;
+          return newGuessedLetters.includes(char);
+        });
       
       return {
         ...prev,

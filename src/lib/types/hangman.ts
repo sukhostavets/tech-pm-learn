@@ -5,7 +5,11 @@
 export interface HangmanWord {
   word: string;
   hint: string;
+  difficulty?: HangmanDifficulty;
+  milestoneId?: number;
 }
+
+export type HangmanDifficulty = 'easy' | 'medium' | 'hard';
 
 export type HangmanGameStatus = 'playing' | 'won' | 'lost';
 

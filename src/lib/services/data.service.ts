@@ -57,6 +57,8 @@ export interface IDataService {
     avatarUrl?: string | null;
   }): Promise<void>;
   setTutorialCompleted(): Promise<void>;
+  getHangmanStreak(): Promise<{ streak: number; bestStreak: number }>;
+  saveHangmanStreak(streak: number, bestStreak: number): Promise<void>;
 }
 
 export const dataService: IDataService = new SupabaseDataService();

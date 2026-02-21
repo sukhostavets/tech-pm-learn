@@ -1,38 +1,57 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { motion } from 'motion/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Flame, Trophy, Lightbulb, ChevronDown } from 'lucide-react';
 import Confetti from 'react-confetti';
+import { useHangman } from '../../hooks';
 import { dataService } from '../../lib/services/data.service';
-import type { HangmanWord } from '../../lib/types';
+import type { HangmanDifficulty, HangmanWord } from '../../lib/types';
+import { GameOverlay, HangmanVisual, Keyboard, WordDisplay } from '../components/hangman';
+
+const MAX_WRONG_GUESSES = 6;
+const DIFFICULTY_OPTIONS: ReadonlyArray<{ value: HangmanDifficulty | 'all'; label: string }> = [
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+  { value: 'all', label: 'All' },
+];
+
+function shuffleWords(wordList: readonly HangmanWord[]): HangmanWord[] {
+  const shuffled = [...wordList];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = temp;
+  }
+  return shuffled;
+}
 
 export function HangmanGame() {
   const navigate = useNavigate();
-  const [words, setWords] = useState<HangmanWord[]>([]);
+  const [allWords, setAllWords] = useState<HangmanWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<HangmanDifficulty | 'all'>('easy');
+  const [shuffleNonce, setShuffleNonce] = useState(0);
   const [showHint, setShowHint] = useState(false);
-  const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
-  const [wrongGuesses, setWrongGuesses] = useState(0);
-  const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
-  const handleGuessRef = useRef<(letter: string) => void>(() => {});
-
-  const pickRandomIndex = (wordList: HangmanWord[]) =>
-    wordList.length > 0 ? Math.floor(Math.random() * wordList.length) : 0;
+  const [lastGuessedLetter, setLastGuessedLetter] = useState<string | null>(null);
+  const [lastGuessCorrect, setLastGuessCorrect] = useState<boolean | null>(null);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    dataService
-      .getHangmanWords()
-      .then((data) => {
-        const list = [...data];
-        if (!cancelled && list.length) {
-          setWords(list);
-          setCurrentWordIndex(pickRandomIndex(list));
-        } else if (!cancelled) setWords(list);
+    Promise.all([
+      dataService.getHangmanWords(),
+      dataService.getHangmanStreak(),
+    ])
+      .then(([words, streakData]) => {
+        if (cancelled) return;
+        setAllWords([...words]);
+        setCurrentStreak(streakData.streak);
+        setBestStreak(streakData.bestStreak);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load words');
@@ -43,20 +62,72 @@ export function HangmanGame() {
     return () => { cancelled = true; };
   }, []);
 
-  const resetGame = () => {
-    setGuessedLetters([]);
-    setWrongGuesses(0);
-    setShowHint(false);
-    setGameStatus('playing');
-  };
+  const availableWords = useMemo(() => {
+    if (selectedDifficulty === 'all') return allWords;
+    return allWords.filter((word) => word.difficulty === selectedDifficulty);
+  }, [allWords, selectedDifficulty]);
 
-  useEffect(() => {
-    if (words.length > 0) resetGame();
-  }, [currentWordIndex, words.length]);
+  const wordsForSession = useMemo(
+    () => shuffleWords(availableWords),
+    [availableWords, shuffleNonce]
+  );
+
+  const {
+    currentWord,
+    currentWordIndex,
+    guessedLetters,
+    wrongGuesses,
+    gameStatus,
+    revealedWord,
+    isPlaying,
+    isWon,
+    isLost,
+    guessLetter,
+    nextWord,
+    resetCurrentWord,
+  } = useHangman({
+    words: wordsForSession,
+    maxWrongGuesses: MAX_WRONG_GUESSES,
+  });
+
+  const resetTransientUi = useCallback(() => {
+    setShowHint(false);
+    setLastGuessedLetter(null);
+    setLastGuessCorrect(null);
+  }, []);
 
   const completedChoreOnWinRef = useRef(false);
+  const previousStatusRef = useRef(gameStatus);
+
   useEffect(() => {
-    if (gameStatus !== 'won' || completedChoreOnWinRef.current) return;
+    const previousStatus = previousStatusRef.current;
+    if (previousStatus === gameStatus) return;
+
+    if (previousStatus === 'playing' && gameStatus === 'won') {
+      setCurrentStreak((prev) => {
+        const next = prev + 1;
+        setBestStreak((best) => {
+          const newBest = Math.max(best, next);
+          dataService.saveHangmanStreak(next, newBest).catch(() => {});
+          return newBest;
+        });
+        return next;
+      });
+    }
+
+    if (previousStatus === 'playing' && gameStatus === 'lost') {
+      setCurrentStreak(0);
+      setBestStreak((best) => {
+        dataService.saveHangmanStreak(0, best).catch(() => {});
+        return best;
+      });
+    }
+
+    previousStatusRef.current = gameStatus;
+  }, [gameStatus]);
+
+  useEffect(() => {
+    if (!isWon || completedChoreOnWinRef.current) return;
     completedChoreOnWinRef.current = true;
     dataService
       .getDailyChores()
@@ -67,191 +138,234 @@ export function HangmanGame() {
         if (hangmanChore) return dataService.completeChore(hangmanChore.id);
       })
       .catch((e) => console.error('Complete Hangman chore', e));
-  }, [gameStatus]);
+  }, [isWon]);
 
-  const currentWord = words[currentWordIndex];
-  const maxWrong = 6;
+  const handleGuess = useCallback((rawLetter: string) => {
+    if (!isPlaying || !currentWord) return;
+    const letter = rawLetter.toUpperCase();
+    if (!/^[A-Z]$/.test(letter) || guessedLetters.includes(letter)) return;
 
-  const handleGuess = (letter: string) => {
-    if (gameStatus !== 'playing' || guessedLetters.includes(letter)) return;
-    const word = words[currentWordIndex];
-    if (!word) return;
-
-    const newGuessedLetters = [...guessedLetters, letter];
-    setGuessedLetters(newGuessedLetters);
-
-    if (!word.word.includes(letter)) {
-      const newWrong = wrongGuesses + 1;
-      setWrongGuesses(newWrong);
-      if (newWrong >= maxWrong) {
-        setGameStatus('lost');
-      }
-    } else {
-      const isWon = word.word.split('').every((l) => newGuessedLetters.includes(l));
-      if (isWon) setGameStatus('won');
-    }
-  };
+    const isCorrect = currentWord.word.includes(letter);
+    setLastGuessedLetter(letter);
+    setLastGuessCorrect(isCorrect);
+    guessLetter(letter);
+  }, [currentWord, guessLetter, guessedLetters, isPlaying]);
 
   useEffect(() => {
-    handleGuessRef.current = handleGuess;
-  });
-  useEffect(() => {
-    if (gameStatus !== 'playing' || !words.length || !words[currentWordIndex]) return;
+    if (!isPlaying || !currentWord) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       const key = e.key.toUpperCase();
       if (key.length === 1 && key >= 'A' && key <= 'Z') {
         e.preventDefault();
-        handleGuessRef.current(key);
+        handleGuess(key);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [gameStatus, currentWordIndex, words]);
+  }, [currentWord, handleGuess, isPlaying]);
 
-  const keyboard = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+  const handleNext = useCallback(() => {
+    resetTransientUi();
+    if (isLost) {
+      resetCurrentWord();
+      return;
+    }
+    const isLastWordInCycle = currentWordIndex >= wordsForSession.length - 1;
+    if (isLastWordInCycle) {
+      setShuffleNonce((prev) => prev + 1);
+      return;
+    }
+    nextWord();
+  }, [currentWordIndex, isLost, nextWord, resetCurrentWord, resetTransientUi, wordsForSession.length]);
 
+  /* ---------- loading skeleton ---------- */
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <p className="text-[#8B4513] font-medium">Loading words…</p>
+      <div className="max-w-2xl mx-auto px-4 pt-4 pb-8 space-y-6 animate-pulse">
+        <div className="h-8 w-32 bg-[#e8ddc8] rounded-lg" />
+        <div className="flex justify-center">
+          <div className="w-36 h-36 rounded-2xl bg-[#e8ddc8]" />
+        </div>
+        <div className="flex justify-center gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="w-9 h-11 bg-[#e8ddc8] rounded" />
+          ))}
+        </div>
+        <div className="flex flex-col gap-1.5 items-center">
+          {[10, 9, 7].map((n) => (
+            <div key={n} className="flex gap-1.5">
+              {Array.from({ length: n }).map((_, i) => (
+                <div key={i} className="w-9 h-10 bg-[#e8ddc8] rounded-md" />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
-  if (error || !words.length) {
+
+  if (error || !allWords.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
-        <p className="text-red-600">{error ?? 'No words available'}</p>
+        <p className="text-red-600">{error ?? 'No words available yet'}</p>
         <Button onClick={() => navigate('/dashboard')}>Back to Stable</Button>
       </div>
     );
   }
-  if (!currentWord) {
-    return null;
+
+  if (!availableWords.length) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 pt-6 flex flex-col items-center gap-5">
+        <p className="text-[#7a6244] font-medium">No words for this difficulty.</p>
+        <DifficultyPicker
+          value={selectedDifficulty}
+          onChange={(v) => setSelectedDifficulty(v)}
+        />
+      </div>
+    );
   }
 
+  if (!currentWord) return null;
+
+  const guessDotsCount = MAX_WRONG_GUESSES;
+
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 flex flex-col items-center">
-      {gameStatus === 'won' && <Confetti recycle={false} numberOfPieces={200} />}
-      
-      <div className="w-full flex justify-between items-center mb-8">
-        <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-          <ArrowLeft className="mr-2" /> Back to Stable
-        </Button>
+    <div className="max-w-2xl mx-auto px-4 pt-2 pb-6 relative">
+      {isWon && <Confetti recycle={false} numberOfPieces={200} />}
+
+      {/* top bar */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-1 text-sm text-[#7a6244] hover:text-[#3d2b1f] transition-colors"
+        >
+          <ArrowLeft size={16} />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+
+        <div className="flex items-center gap-4 text-xs sm:text-sm text-[#7a6244]">
+          <span className="flex items-center gap-1">
+            <Flame size={14} className="text-orange-500" />
+            {currentStreak}
+          </span>
+          <span className="flex items-center gap-1">
+            <Trophy size={14} className="text-amber-500" />
+            {bestStreak}
+          </span>
+        </div>
+
+        <DifficultyPicker
+          value={selectedDifficulty}
+          onChange={(v) => {
+            setSelectedDifficulty(v);
+            setShuffleNonce((prev) => prev + 1);
+            resetTransientUi();
+          }}
+        />
       </div>
 
-      <Card className="w-full max-w-2xl bg-[#FFFDD0] border-4 border-[#8B4513] p-8 relative overflow-hidden">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-[#654321] mb-2">Stable Hangman</h2>
-          <p className="text-[#8B4513]">Guess the tech term to save the rider!</p>
-        </div>
+      {/* game area */}
+      <div className="bg-white/70 backdrop-blur rounded-2xl shadow-sm border border-[#e8ddc8] p-4 sm:p-6 relative overflow-hidden">
+        {/* visual + word */}
+        <div className="flex flex-col items-center gap-4 mb-6">
+          <HangmanVisual wrongGuesses={wrongGuesses} maxWrongGuesses={MAX_WRONG_GUESSES} />
 
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-center mb-8">
-          {/* Hangman Visual - Simplified as Horseshoe/Rider */}
-          <div className="w-48 h-48 bg-white rounded-xl border-2 border-[#D2B48C] relative flex items-center justify-center">
-             {/* Simple SVG representation */}
-             <svg width="150" height="150" viewBox="0 0 100 100">
-               {/* Gallows/Tree */}
-               <line x1="20" y1="90" x2="80" y2="90" stroke="#8B4513" strokeWidth="4" />
-               <line x1="50" y1="90" x2="50" y2="20" stroke="#8B4513" strokeWidth="4" />
-               <line x1="50" y1="20" x2="80" y2="20" stroke="#8B4513" strokeWidth="4" />
-               <line x1="80" y1="20" x2="80" y2="30" stroke="#8B4513" strokeWidth="2" />
-               
-               {/* Rider Parts */}
-               {wrongGuesses > 0 && <circle cx="80" cy="40" r="8" stroke="#FF69B4" fill="none" strokeWidth="2" />} {/* Head */}
-               {wrongGuesses > 1 && <line x1="80" y1="48" x2="80" y2="70" stroke="#FF69B4" strokeWidth="2" />} {/* Body */}
-               {wrongGuesses > 2 && <line x1="80" y1="55" x2="70" y2="65" stroke="#FF69B4" strokeWidth="2" />} {/* Left Arm */}
-               {wrongGuesses > 3 && <line x1="80" y1="55" x2="90" y2="65" stroke="#FF69B4" strokeWidth="2" />} {/* Right Arm */}
-               {wrongGuesses > 4 && <line x1="80" y1="70" x2="70" y2="85" stroke="#FF69B4" strokeWidth="2" />} {/* Left Leg */}
-               {wrongGuesses > 5 && <line x1="80" y1="70" x2="90" y2="85" stroke="#FF69B4" strokeWidth="2" />} {/* Right Leg */}
-             </svg>
+          {/* guess dots */}
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: guessDotsCount }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
+                  i < wrongGuesses ? 'bg-red-400' : 'bg-[#d4c9b4]'
+                }`}
+              />
+            ))}
           </div>
 
-          {/* Word Display */}
-          <div className="flex flex-col items-center">
-             {currentWord.hint && (
-               <div className="mb-4 flex flex-col items-center gap-2">
-                 {!showHint ? (
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={() => setShowHint(true)}
-                     className="border-[#D2B48C] text-[#8B4513] hover:bg-[#FFB6C1]/30"
-                   >
-                     Show hint
-                   </Button>
-                 ) : (
-                   <p className="text-sm text-[#8B4513] bg-[#FFB6C1]/30 px-3 py-1 rounded-full">
-                     Hint: {currentWord.hint}
-                   </p>
-                 )}
-               </div>
-             )}
-             <div className="flex gap-2 flex-wrap justify-center">
-               {currentWord.word.split('').map((char, i) => (
-                 <div key={i} className="w-10 h-12 border-b-4 border-[#654321] flex items-center justify-center text-2xl font-bold text-[#654321]">
-                   {guessedLetters.includes(char) || gameStatus !== 'playing' ? char : ''}
-                 </div>
-               ))}
-             </div>
-          </div>
-        </div>
+          {/* hint toggle */}
+          {currentWord.hint && !showHint && (
+            <button
+              onClick={() => setShowHint(true)}
+              className="flex items-center gap-1 text-xs text-[#a08c6e] hover:text-[#7a6244] transition-colors"
+            >
+              <Lightbulb size={13} />
+              Show hint
+            </button>
+          )}
 
-        {/* Keyboard */}
-        <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
-          {keyboard.map((letter) => {
-             const isGuessed = guessedLetters.includes(letter);
-             const isCorrect = currentWord.word.includes(letter);
-             let btnClass = "w-10 h-10 font-bold rounded shadow-sm transition-all ";
-             
-             if (isGuessed) {
-               btnClass += isCorrect 
-                 ? "bg-[#98FF98] text-[#006400] border border-green-600 opacity-50 cursor-not-allowed" 
-                 : "bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed";
-             } else {
-               btnClass += "bg-[#D2B48C] text-[#654321] hover:bg-[#FF69B4] hover:text-white border-b-4 border-[#8B4513] active:border-b-0 active:translate-y-1";
-             }
-
-             return (
-               <button
-                 key={letter}
-                 onClick={() => handleGuess(letter)}
-                 disabled={isGuessed || gameStatus !== 'playing'}
-                 className={btnClass}
-               >
-                 {letter}
-               </button>
-             );
-          })}
-        </div>
-
-        {/* Game Over / Win Overlay */}
-        {(gameStatus !== 'playing') && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-20"
+          {/* word with wrong-guess shake */}
+          <motion.div
+            key="word-feedback"
+            animate={
+              lastGuessCorrect === false
+                ? { x: [0, -6, 6, -4, 4, 0] }
+                : { x: 0 }
+            }
+            transition={{ duration: 0.25 }}
           >
-            <div className="bg-[#FFFDD0] p-8 rounded-xl border-4 border-[#FF69B4] text-center shadow-2xl max-w-sm">
-              <h3 className="text-3xl font-bold mb-2">
-                {gameStatus === 'won' ? '🎉 Stable Safe!' : '🍂 Oh no!'}
-              </h3>
-              <p className="text-[#8B4513] mb-6">
-                {gameStatus === 'won' 
-                  ? `You guessed ${currentWord.word} correctly!` 
-                  : `The word was ${currentWord.word}. The rider fell off!`}
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={() => setCurrentWordIndex(pickRandomIndex(words))}>
-                  {gameStatus === 'won' ? 'Next word' : 'Try again'}
-                </Button>
-                <Button variant="outline" onClick={() => navigate('/dashboard')}>
-                  Quit
-                </Button>
-              </div>
-            </div>
+            <WordDisplay
+              word={currentWord.word}
+              revealedWord={revealedWord}
+              hint={currentWord.hint}
+              showHint={showHint}
+            />
           </motion.div>
-        )}
-      </Card>
+        </div>
+
+        {/* keyboard */}
+        <Keyboard
+          guessedLetters={guessedLetters}
+          onLetterClick={handleGuess}
+          word={currentWord.word}
+          disabled={!isPlaying}
+          lastGuessedLetter={lastGuessedLetter}
+          lastGuessCorrect={lastGuessCorrect}
+        />
+
+        <GameOverlay
+          gameStatus={gameStatus}
+          word={currentWord.word}
+          hint={currentWord.hint}
+          streak={currentStreak}
+          bestStreak={bestStreak}
+          onNext={handleNext}
+          onQuit={() => navigate('/dashboard')}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ---------- small sub-component ---------- */
+
+function DifficultyPicker({
+  value,
+  onChange,
+}: {
+  value: HangmanDifficulty | 'all';
+  onChange: (v: HangmanDifficulty | 'all') => void;
+}) {
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as HangmanDifficulty | 'all')}
+        className="appearance-none bg-[#f5edd8] text-[#3d2b1f] text-xs sm:text-sm font-medium pl-3 pr-7 py-1.5 rounded-lg border border-[#d4c9b4] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#c4a882]/50"
+      >
+        {DIFFICULTY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="absolute right-2 pointer-events-none text-[#7a6244]" />
     </div>
   );
 }

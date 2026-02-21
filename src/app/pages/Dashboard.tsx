@@ -86,7 +86,6 @@ export function Dashboard() {
           icon="⭐"
           label="Experience Points"
           value={`${user.xp} XP`}
-          progress={{ value: user.xp, max: user.nextLevelXp }}
         />
         <StatsCard
           icon="🔥"

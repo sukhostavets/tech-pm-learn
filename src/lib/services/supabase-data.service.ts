@@ -18,6 +18,13 @@ import type {
   Resource,
 } from '../types';
 import type { IDataService } from './data.service';
+import {
+  computeMilestonesWithProgress,
+  computeProgressFromCounts,
+  type LessonRow,
+  type UserLessonRow,
+  type UserMilestoneRow,
+} from './milestone-progress';
 
 function getSupabase() {
   if (!supabase) throw new Error('Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
@@ -218,10 +225,15 @@ export class SupabaseDataService implements IDataService {
   async getHangmanWords(): Promise<readonly HangmanWord[]> {
     const { data, error } = await getSupabase()
       .from('hangman_words')
-      .select('word, hint')
+      .select('word, hint, difficulty, milestone_id')
       .order('id');
     if (error) throw error;
-    return (data ?? []) as HangmanWord[];
+    return (data ?? []).map((row) => ({
+      word: row.word,
+      hint: row.hint,
+      difficulty: row.difficulty as HangmanWord['difficulty'],
+      milestoneId: row.milestone_id ?? undefined,
+    }));
   }
 
   async getMilestones(): Promise<readonly Milestone[]> {
@@ -250,31 +262,19 @@ export class SupabaseDataService implements IDataService {
       }));
     }
 
-    const { data: userProgress, error: progressError } = await db
-      .from('user_milestones')
-      .select('milestone_id, status, progress, completed_at')
-      .eq('user_id', user.id);
-    if (progressError) throw progressError;
-    const progressByMilestone = new Map(
-      (userProgress ?? []).map((p) => [p.milestone_id, p])
-    );
+    const [progressRes, lessonsRes, userLessonsRes] = await Promise.all([
+      db.from('user_milestones').select('milestone_id, status, progress, completed_at').eq('user_id', user.id),
+      db.from('lessons').select('id, milestone_id'),
+      db.from('user_lessons').select('lesson_id').eq('user_id', user.id),
+    ]);
+    if (progressRes.error) throw progressRes.error;
 
-    return milestones.map((m) => {
-      const p = progressByMilestone.get(m.id);
-      return {
-        id: m.id,
-        title: m.title,
-        topic: m.topic,
-        icon: m.icon,
-        description: m.description ?? undefined,
-        totalLessons: m.total_lessons ?? undefined,
-        status: (p?.status ?? 'locked') as Milestone['status'],
-        progress: p?.progress ?? 0,
-        completedAt: p?.completed_at ? new Date(p.completed_at) : undefined,
-        mapX: m.map_x != null ? Number(m.map_x) : undefined,
-        mapY: m.map_y != null ? Number(m.map_y) : undefined,
-      };
-    });
+    return computeMilestonesWithProgress(
+      milestones as Parameters<typeof computeMilestonesWithProgress>[0],
+      (lessonsRes.data ?? []) as LessonRow[],
+      (userLessonsRes.data ?? []) as UserLessonRow[],
+      (progressRes.data ?? []) as UserMilestoneRow[]
+    );
   }
 
   async getMilestoneById(id: number): Promise<Milestone | null> {
@@ -294,17 +294,19 @@ export class SupabaseDataService implements IDataService {
     let completedAt: Date | undefined;
 
     if (user) {
-      const { data: up } = await db
-        .from('user_milestones')
-        .select('status, progress, completed_at')
-        .eq('user_id', user.id)
-        .eq('milestone_id', id)
-        .maybeSingle();
+      const [{ data: up }, { data: milestoneLessons }, { data: completed }] = await Promise.all([
+        db.from('user_milestones').select('status, progress, completed_at').eq('user_id', user.id).eq('milestone_id', id).maybeSingle(),
+        db.from('lessons').select('id').eq('milestone_id', id),
+        db.from('user_lessons').select('lesson_id').eq('user_id', user.id),
+      ]);
       if (up) {
         status = up.status as Milestone['status'];
-        progress = up.progress ?? 0;
         completedAt = up.completed_at ? new Date(up.completed_at) : undefined;
       }
+      const totalLessons = milestoneLessons?.length ?? 0;
+      const completedIds = new Set((completed ?? []).map((ul) => ul.lesson_id));
+      const completedCount = (milestoneLessons ?? []).filter((l) => completedIds.has(l.id)).length;
+      progress = computeProgressFromCounts(totalLessons, completedCount, up?.progress ?? 0);
     }
 
     return {
@@ -610,5 +612,36 @@ export class SupabaseDataService implements IDataService {
       .update({ tutorial_completed: true, updated_at: new Date().toISOString() })
       .eq('id', user.id);
     if (error) throw error;
+  }
+
+  async getHangmanStreak(): Promise<{ streak: number; bestStreak: number }> {
+    const db = getSupabase();
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) return { streak: 0, bestStreak: 0 };
+    const { data, error } = await db
+      .from('profiles')
+      .select('hangman_streak, hangman_best_streak')
+      .eq('id', user.id)
+      .single();
+    if (error || !data) return { streak: 0, bestStreak: 0 };
+    return {
+      streak: data.hangman_streak ?? 0,
+      bestStreak: data.hangman_best_streak ?? 0,
+    };
+  }
+
+  async saveHangmanStreak(streak: number, bestStreak: number): Promise<void> {
+    const db = getSupabase();
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) return;
+    const { error } = await db
+      .from('profiles')
+      .update({
+        hangman_streak: streak,
+        hangman_best_streak: bestStreak,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+    if (error) console.error('saveHangmanStreak failed:', error);
   }
 }
