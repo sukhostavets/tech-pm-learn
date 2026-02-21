@@ -4,6 +4,7 @@
 
 export * from './user';
 export * from './milestone';
+export * from './lesson';
 export * from './quiz';
 export * from './hangman';
 export * from './game';

@@ -161,15 +161,6 @@ export function MilestoneMap() {
         </div>
       </motion.div>
 
-      <div className="absolute top-10 left-10 text-4xl opacity-80 pointer-events-none">
-        🌲
-      </div>
-      <div className="absolute bottom-20 right-40 text-4xl opacity-80 pointer-events-none">
-        🌳
-      </div>
-      <div className="absolute top-40 right-10 text-4xl opacity-80 pointer-events-none">
-        🏡
-      </div>
     </div>
   );
 }

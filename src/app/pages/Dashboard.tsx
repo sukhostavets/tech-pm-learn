@@ -51,22 +51,6 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
-  const handleChoreToggle = useCallback(
-    async (choreId: string) => {
-      try {
-        await dataService.completeChore(choreId);
-        setChores((prev) =>
-          prev.map((c) =>
-            c.id === choreId ? { ...c, completed: !c.completed } : c
-          )
-        );
-      } catch (e) {
-        console.error('Complete chore failed:', e);
-      }
-    },
-    []
-  );
-
   if (loading) {
     return <LoadingView message="Loading your stable…" />;
   }
@@ -87,7 +71,13 @@ export function Dashboard() {
         <WelcomeBanner
           user={user}
           milestones={milestones}
-          onContinueLearning={() => navigate('/lesson/1')}
+          onContinueLearning={() => {
+            const inProgress = milestones.find((m) => m.status === 'in-progress');
+            const next = milestones.find((m) => m.status === 'locked');
+            if (inProgress) navigate(`/lesson/${inProgress.id}`);
+            else if (next) navigate(`/lesson/${next.id}`);
+            else navigate('/dashboard');
+          }}
         />
       </div>
 
@@ -142,21 +132,15 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {chores.map((chore) => {
-                  const isHangmanChore = chore.task.toLowerCase().includes('hangman');
-                  return (
+                {chores
+                  .filter((chore) => chore.task.toLowerCase().includes('hangman'))
+                  .map((chore) => (
                     <ChoreItem
                       key={chore.id}
                       chore={chore}
-                      onToggle={
-                        chore.completed || isHangmanChore ? undefined : handleChoreToggle
-                      }
-                      onNavigate={
-                        isHangmanChore ? () => navigate('/game/hangman') : undefined
-                      }
+                      onNavigate={() => navigate('/game/hangman')}
                     />
-                  );
-                })}
+                  ))}
               </ul>
             </CardContent>
           </Card>

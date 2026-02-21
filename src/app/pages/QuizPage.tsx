@@ -12,11 +12,18 @@ import { useQuiz } from '../../hooks/useQuiz';
 import type { Question, Milestone } from '../../lib/types';
 import { theme } from '../../lib/theme';
 
+type QuizMode = 'lesson_check' | 'milestone_test' | null;
+
 export function QuizPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const milestoneIdParam = searchParams.get('milestoneId');
+  const lessonIdParam = searchParams.get('lessonId');
+  const typeParam = searchParams.get('type');
   const milestoneId = milestoneIdParam ? parseInt(milestoneIdParam, 10) : null;
+  const lessonId = lessonIdParam ? parseInt(lessonIdParam, 10) : null;
+  const quizMode: QuizMode =
+    typeParam === 'lesson_check' || typeParam === 'milestone_test' ? typeParam : null;
 
   const [questions, setQuestions] = useState<readonly Question[]>([]);
   const [milestone, setMilestone] = useState<Milestone | null>(null);
@@ -42,11 +49,28 @@ export function QuizPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const validId = milestoneId != null && !Number.isNaN(milestoneId) ? milestoneId : null;
-        if (validId != null) {
+        if (quizMode === 'lesson_check' && lessonId != null && milestoneId != null) {
           const [qs, m] = await Promise.all([
-            dataService.getQuestions(undefined, validId),
-            dataService.getMilestoneById(validId),
+            dataService.getQuestions(undefined, undefined, 'lesson_check', lessonId),
+            dataService.getMilestoneById(milestoneId),
+          ]);
+          if (!cancelled) {
+            setQuestions(qs);
+            setMilestone(m ?? null);
+          }
+        } else if (quizMode === 'milestone_test' && milestoneId != null) {
+          const [qs, m] = await Promise.all([
+            dataService.getQuestions(undefined, milestoneId, 'milestone_test'),
+            dataService.getMilestoneById(milestoneId),
+          ]);
+          if (!cancelled) {
+            setQuestions(qs);
+            setMilestone(m ?? null);
+          }
+        } else if (milestoneId != null && !Number.isNaN(milestoneId)) {
+          const [qs, m] = await Promise.all([
+            dataService.getQuestions(undefined, milestoneId),
+            dataService.getMilestoneById(milestoneId),
           ]);
           if (!cancelled) {
             setQuestions(qs);
@@ -64,14 +88,14 @@ export function QuizPage() {
     };
     load();
     return () => { cancelled = true; };
-  }, [milestoneId]);
+  }, [milestoneId, lessonId, quizMode]);
 
   useEffect(() => {
     if (!result || recorded || totalQuestions === 0) return;
     const topic = milestone?.topic ?? 'general';
     dataService
       .recordQuizAttempt({
-        milestoneId: milestoneId ?? undefined,
+        milestoneId: quizMode === 'milestone_test' ? milestoneId ?? undefined : undefined,
         topic,
         score: result.score,
         totalQuestions: result.totalQuestions,
@@ -80,7 +104,7 @@ export function QuizPage() {
       })
       .then(() => setRecorded(true))
       .catch((e) => console.error('recordQuizAttempt', e));
-  }, [result, recorded, totalQuestions, milestoneId, milestone?.topic]);
+  }, [result, recorded, totalQuestions, milestoneId, milestone?.topic, quizMode]);
 
   if (loading) {
     return <LoadingView message="Loading quiz…" />;
@@ -95,7 +119,25 @@ export function QuizPage() {
     );
   }
 
+  const handleLessonCheckContinue = async () => {
+    if (milestoneId == null || lessonId == null) {
+      navigate('/dashboard');
+      return;
+    }
+    const lessons = await dataService.getLessons(milestoneId);
+    const idx = lessons.findIndex((l) => l.id === lessonId);
+    const nextLesson = idx >= 0 && idx < lessons.length - 1 ? lessons[idx + 1] : null;
+    if (nextLesson) {
+      navigate(`/lesson/${milestoneId}/${nextLesson.id}`);
+    } else {
+      navigate(`/quiz?milestoneId=${milestoneId}&type=milestone_test`);
+    }
+  };
+
   if (showResult && result) {
+    const isLessonCheck = quizMode === 'lesson_check';
+    const isMilestoneTest = quizMode === 'milestone_test';
+
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center text-center p-4">
         {result.passed && <Confetti recycle={false} numberOfPieces={500} />}
@@ -110,15 +152,21 @@ export function QuizPage() {
             className="text-3xl font-bold mb-2"
             style={{ color: theme.colors.brownDark }}
           >
-            {result.passed ? 'Stellar Performance!' : 'Keep Practicing!'}
+            {isLessonCheck
+              ? (result.passed ? 'Lesson Check Passed!' : 'Review and Try Again')
+              : result.passed
+                ? 'Stellar Performance!'
+                : 'Keep Practicing!'}
           </h2>
           <p className="mb-6" style={{ color: theme.colors.brown }}>
             You scored {result.score} out of {result.totalQuestions}.
-            {result.passed
-              ? " You've unlocked a new horse for your stable!"
-              : ' Review the lesson and try again to unlock your reward.'}
+            {isLessonCheck
+              ? (result.passed ? ' Continue to the next lesson or take the milestone test.' : ' Review the lesson and try the quiz again.')
+              : result.passed
+                ? " You've unlocked a new horse for your stable!"
+                : ' Review the lesson and try again to unlock your reward.'}
           </p>
-          {result.passed && (
+          {result.passed && isMilestoneTest && (
             <div
               className="mb-8 p-4 rounded-xl border"
               style={{
@@ -156,14 +204,44 @@ export function QuizPage() {
               </div>
             </div>
           )}
-          <div className="flex gap-4 justify-center">
-            <Button
-              variant="outline"
-              onClick={() => navigate(milestoneId != null ? `/lesson/${milestoneId}` : '/lesson/1')}
-            >
-              Review Lesson
-            </Button>
-            <Button onClick={() => navigate('/dashboard')}>Return to Stable</Button>
+          <div className="flex flex-wrap gap-4 justify-center">
+            {isLessonCheck && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => lessonId != null && milestoneId != null && navigate(`/lesson/${milestoneId}/${lessonId}`)}
+                >
+                  Review Lesson
+                </Button>
+                {result.passed && (
+                  <Button onClick={handleLessonCheckContinue}>
+                    Continue
+                  </Button>
+                )}
+              </>
+            )}
+            {isMilestoneTest && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(milestoneId != null ? `/lesson/${milestoneId}` : '/dashboard')}
+                >
+                  Review Lessons
+                </Button>
+                <Button onClick={() => navigate('/dashboard')}>Return to Stable</Button>
+              </>
+            )}
+            {!isLessonCheck && !isMilestoneTest && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(milestoneId != null ? `/lesson/${milestoneId}` : '/lesson/1')}
+                >
+                  Review Lesson
+                </Button>
+                <Button onClick={() => navigate('/dashboard')}>Return to Stable</Button>
+              </>
+            )}
           </div>
         </motion.div>
       </div>
@@ -179,7 +257,8 @@ export function QuizPage() {
           className="text-2xl font-bold"
           style={{ color: theme.colors.brownDark }}
         >
-          Quiz{milestone ? `: ${milestone.title}` : ': Database Basics'}
+          {quizMode === 'lesson_check' ? 'Lesson Check' : quizMode === 'milestone_test' ? 'Milestone Test' : 'Quiz'}
+          {milestone ? `: ${milestone.title}` : ': Database Basics'}
         </h2>
         <span
           className="font-mono"

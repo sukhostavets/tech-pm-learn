@@ -7,6 +7,7 @@ import { Layout } from './components/layout/Layout';
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
 import { MilestoneMap } from './pages/MilestoneMap';
+import { MilestoneDetail } from './pages/MilestoneDetail';
 import { LessonView } from './pages/LessonView';
 import { QuizPage } from './pages/QuizPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -37,7 +38,8 @@ function AppContent() {
             <Routes>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/map" element={<MilestoneMap />} />
-              <Route path="/lesson/:milestoneId" element={<LessonView />} />
+              <Route path="/lesson/:milestoneId/:lessonId" element={<LessonView />} />
+              <Route path="/lesson/:milestoneId" element={<MilestoneDetail />} />
               <Route path="/quiz" element={<QuizPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/game/hangman" element={<HangmanGame />} />

@@ -13,11 +13,22 @@ import type {
   DailyChore,
   LeaderboardEntry,
   Reward,
+  Lesson,
+  Resource,
 } from '../types';
 import { SupabaseDataService } from './supabase-data.service';
 
 export interface IDataService {
-  getQuestions(topic?: string, milestoneId?: number): Promise<readonly Question[]>;
+  getQuestions(
+    topic?: string,
+    milestoneId?: number,
+    questionType?: 'lesson_check' | 'milestone_test',
+    lessonId?: number
+  ): Promise<readonly Question[]>;
+  getLessons(milestoneId: number): Promise<readonly Lesson[]>;
+  getLessonById(lessonId: number): Promise<Lesson | null>;
+  getResources(milestoneId: number): Promise<readonly Resource[]>;
+  completeLesson(lessonId: number): Promise<void>;
   getHangmanWords(): Promise<readonly HangmanWord[]>;
   getMilestones(): Promise<readonly Milestone[]>;
   getMilestoneById(id: number): Promise<Milestone | null>;

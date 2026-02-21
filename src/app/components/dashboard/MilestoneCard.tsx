@@ -41,11 +41,18 @@ export function MilestoneCard({
       </div>
       <h3 className="font-bold text-[#654321]">{milestone.title}</h3>
       <p className="text-sm text-[#8B4513]">{milestone.topic}</p>
-      
+      {milestone.description && (
+        <p className="text-xs text-[#8B4513] mt-1 line-clamp-2">{milestone.description}</p>
+      )}
+
       {isInProgress && showProgress && milestone.progress !== undefined && (
         <div className="mt-3">
           <ProgressBar value={milestone.progress} max={100} showIcon={false} className="h-1.5" />
-          <p className="text-xs text-[#8B4513] mt-1 text-right">{milestone.progress}% Complete</p>
+          <p className="text-xs text-[#8B4513] mt-1 text-right">
+            {milestone.totalLessons != null
+              ? `~${Math.round((milestone.progress / 100) * milestone.totalLessons)}/${milestone.totalLessons} lessons`
+              : `${milestone.progress}% Complete`}
+          </p>
         </div>
       )}
     </motion.div>

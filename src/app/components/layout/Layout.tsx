@@ -57,6 +57,13 @@ export function Layout({ children }: LayoutProps) {
     { icon: UserIcon, label: 'Profile', path: '/profile' },
   ];
 
+  const [bellToast, setBellToast] = useState(false);
+
+  const handleBellClick = () => {
+    setBellToast(true);
+    setTimeout(() => setBellToast(false), 2500);
+  };
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
@@ -68,12 +75,14 @@ export function Layout({ children }: LayoutProps) {
             <Menu size={24} />
           </button>
           {APP_LOGO_URL ? (
-            <img src={APP_LOGO_URL} alt="Tech Stable" className="h-8 w-8 object-contain" />
+            <img src={APP_LOGO_URL} alt="Tech Stable" className="h-8 w-8 shrink-0 rounded-full object-cover" />
           ) : null}
           <span className="font-bold text-lg">Tech Stable</span>
         </div>
         <div className="flex items-center gap-3">
-          <Bell size={20} />
+          <button type="button" onClick={handleBellClick} title="Notifications">
+            <Bell size={20} />
+          </button>
           <div className="w-8 h-8 bg-[#FFB6C1] rounded-full border-2 border-[#FFFDD0] flex items-center justify-center text-[#8B4513] font-bold overflow-hidden">
             {(user?.user_metadata?.avatar_url || DEFAULT_AVATAR_URL) ? (
               <img src={user?.user_metadata?.avatar_url || DEFAULT_AVATAR_URL} alt="" className="w-full h-full object-cover" />
@@ -187,9 +196,8 @@ export function Layout({ children }: LayoutProps) {
                 {profile?.hayCoins != null ? `${profile.hayCoins.toLocaleString()} Hay Coins` : '— Hay Coins'}
               </span>
             </div>
-            <button type="button" className="relative">
+            <button type="button" className="relative" onClick={handleBellClick} title="Notifications">
               <Bell className="text-[#8B4513]" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
             </button>
           </div>
         </div>
@@ -202,6 +210,19 @@ export function Layout({ children }: LayoutProps) {
       {profile && profile.tutorialCompleted !== true && (
         <OnboardingTour onComplete={refreshProfile} />
       )}
+
+      <AnimatePresence>
+        {bellToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 right-4 md:top-4 md:right-8 z-[100] bg-[#8B4513] text-[#FFFDD0] px-5 py-3 rounded-xl shadow-lg text-sm font-medium"
+          >
+            🔔 Notifications are coming soon!
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

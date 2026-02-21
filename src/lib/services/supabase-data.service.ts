@@ -14,12 +14,31 @@ import type {
   DailyChore,
   LeaderboardEntry,
   Reward,
+  Lesson,
+  Resource,
 } from '../types';
 import type { IDataService } from './data.service';
 
 function getSupabase() {
   if (!supabase) throw new Error('Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
   return supabase;
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayUtc(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Effective streak for display: 0 if last activity was before yesterday. */
+function effectiveStreak(streak: number, lastActivityDate: string | null): number {
+  if (!lastActivityDate) return 0;
+  const dateStr = lastActivityDate.slice(0, 10);
+  return dateStr >= yesterdayUtc() ? streak : 0;
 }
 
 function profileToUser(row: {
@@ -34,6 +53,7 @@ function profileToUser(row: {
   avatar_url: string | null;
   created_at: string;
   tutorial_completed?: boolean;
+  last_activity_date?: string | null;
 }): User {
   return {
     id: row.id,
@@ -42,7 +62,7 @@ function profileToUser(row: {
     level: row.level,
     xp: row.xp,
     nextLevelXp: row.next_level_xp,
-    streak: row.streak,
+    streak: effectiveStreak(row.streak, row.last_activity_date ?? null),
     hayCoins: row.hay_coins ?? 0,
     avatarUrl: row.avatar_url ?? undefined,
     joinDate: new Date(row.created_at),
@@ -51,12 +71,24 @@ function profileToUser(row: {
 }
 
 export class SupabaseDataService implements IDataService {
-  async getQuestions(topic?: string, milestoneId?: number): Promise<readonly Question[]> {
+  async getQuestions(
+    topic?: string,
+    milestoneId?: number,
+    questionType?: 'lesson_check' | 'milestone_test',
+    lessonId?: number
+  ): Promise<readonly Question[]> {
     const db = getSupabase();
     let query = db.from('questions').select('id, question, options, correct_index, explanation');
+    if (lessonId != null) {
+      query = query.eq('lesson_id', lessonId);
+    }
     if (milestoneId != null) {
       query = query.eq('milestone_id', milestoneId);
-    } else if (topic) {
+    }
+    if (questionType != null) {
+      query = query.eq('question_type', questionType);
+    }
+    if (topic != null && topic !== '') {
       query = query.eq('topic', topic);
     }
     const { data, error } = await query.order('id');
@@ -68,6 +100,119 @@ export class SupabaseDataService implements IDataService {
       correct: q.correct_index,
       explanation: q.explanation,
     }));
+  }
+
+  async getLessons(milestoneId: number): Promise<readonly Lesson[]> {
+    const db = getSupabase();
+    const { data: { user } } = await db.auth.getUser();
+    const { data: lessons, error: lessonsError } = await db
+      .from('lessons')
+      .select('id, milestone_id, title, subtitle, content_markdown, key_terms, sort_order, estimated_minutes')
+      .eq('milestone_id', milestoneId)
+      .order('sort_order');
+    if (lessonsError) throw lessonsError;
+    if (!lessons?.length) return [];
+
+    let completedLessonIds = new Set<number>();
+    if (user) {
+      const { data: userLessons } = await db
+        .from('user_lessons')
+        .select('lesson_id')
+        .eq('user_id', user.id)
+        .in('lesson_id', lessons.map((l) => l.id));
+      completedLessonIds = new Set((userLessons ?? []).map((ul) => ul.lesson_id));
+    }
+
+    return lessons.map((l) => ({
+      id: l.id,
+      milestoneId: l.milestone_id,
+      title: l.title,
+      subtitle: l.subtitle ?? '',
+      contentMarkdown: l.content_markdown,
+      keyTerms: l.key_terms ? (typeof l.key_terms === 'string' ? l.key_terms.split('|').map((s) => s.trim()).filter(Boolean) : []) : [],
+      sortOrder: l.sort_order,
+      estimatedMinutes: l.estimated_minutes ?? 10,
+      completed: completedLessonIds.has(l.id),
+    }));
+  }
+
+  async getLessonById(lessonId: number): Promise<Lesson | null> {
+    const db = getSupabase();
+    const { data: lesson, error } = await db
+      .from('lessons')
+      .select('id, milestone_id, title, subtitle, content_markdown, key_terms, sort_order, estimated_minutes')
+      .eq('id', lessonId)
+      .single();
+    if (error || !lesson) return null;
+    return {
+      id: lesson.id,
+      milestoneId: lesson.milestone_id,
+      title: lesson.title,
+      subtitle: lesson.subtitle ?? '',
+      contentMarkdown: lesson.content_markdown,
+      keyTerms: lesson.key_terms ? (typeof lesson.key_terms === 'string' ? lesson.key_terms.split('|').map((s) => s.trim()).filter(Boolean) : []) : [],
+      sortOrder: lesson.sort_order,
+      estimatedMinutes: lesson.estimated_minutes ?? 10,
+    };
+  }
+
+  async getResources(milestoneId: number): Promise<readonly Resource[]> {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from('resources')
+      .select('id, milestone_id, title, url, description, source_type')
+      .eq('milestone_id', milestoneId)
+      .order('id');
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      milestoneId: r.milestone_id,
+      title: r.title,
+      url: r.url,
+      description: r.description ?? '',
+      sourceType: r.source_type as Resource['sourceType'],
+    }));
+  }
+
+  async completeLesson(lessonId: number): Promise<void> {
+    const db = getSupabase();
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: lesson, error: lessonError } = await db
+      .from('lessons')
+      .select('milestone_id')
+      .eq('id', lessonId)
+      .single();
+    if (lessonError || !lesson) throw new Error('Lesson not found');
+
+    const { error: ulError } = await db.from('user_lessons').upsert(
+      { user_id: user.id, lesson_id: lessonId },
+      { onConflict: 'user_id,lesson_id' }
+    );
+    if (ulError) throw ulError;
+
+    const [{ data: milestoneLessonIds }, { data: completed }] = await Promise.all([
+      db.from('lessons').select('id').eq('milestone_id', lesson.milestone_id),
+      db.from('user_lessons').select('lesson_id').eq('user_id', user.id),
+    ]);
+    const milestoneSet = new Set((milestoneLessonIds ?? []).map((l) => l.id));
+    const completedLessons = (completed ?? []).filter((ul) => milestoneSet.has(ul.lesson_id)).length;
+    const totalLessons = milestoneSet.size;
+    const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+    const { error: umError } = await db.from('user_milestones').upsert(
+      {
+        user_id: user.id,
+        milestone_id: lesson.milestone_id,
+        status: 'in-progress',
+        progress,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,milestone_id' }
+    );
+    if (umError) throw umError;
+    await this.touchStreak();
   }
 
   async getHangmanWords(): Promise<readonly HangmanWord[]> {
@@ -86,7 +231,7 @@ export class SupabaseDataService implements IDataService {
     } = await db.auth.getUser();
     const { data: milestones, error: milestonesError } = await db
       .from('milestones')
-      .select('id, title, topic, icon, sort_order, map_x, map_y')
+      .select('id, title, topic, icon, sort_order, map_x, map_y, description, total_lessons')
       .order('sort_order');
     if (milestonesError) throw milestonesError;
     if (!milestones?.length) return [];
@@ -97,6 +242,8 @@ export class SupabaseDataService implements IDataService {
         title: m.title,
         topic: m.topic,
         icon: m.icon,
+        description: m.description ?? undefined,
+        totalLessons: m.total_lessons ?? undefined,
         status: 'locked' as const,
         mapX: m.map_x != null ? Number(m.map_x) : undefined,
         mapY: m.map_y != null ? Number(m.map_y) : undefined,
@@ -119,6 +266,8 @@ export class SupabaseDataService implements IDataService {
         title: m.title,
         topic: m.topic,
         icon: m.icon,
+        description: m.description ?? undefined,
+        totalLessons: m.total_lessons ?? undefined,
         status: (p?.status ?? 'locked') as Milestone['status'],
         progress: p?.progress ?? 0,
         completedAt: p?.completed_at ? new Date(p.completed_at) : undefined,
@@ -132,7 +281,7 @@ export class SupabaseDataService implements IDataService {
     const db = getSupabase();
     const { data: milestone, error: milestoneError } = await db
       .from('milestones')
-      .select('id, title, topic, icon, sort_order, map_x, map_y')
+      .select('id, title, topic, icon, sort_order, map_x, map_y, description, total_lessons')
       .eq('id', id)
       .single();
     if (milestoneError || !milestone) return null;
@@ -163,6 +312,8 @@ export class SupabaseDataService implements IDataService {
       title: milestone.title,
       topic: milestone.topic,
       icon: milestone.icon,
+      description: milestone.description ?? undefined,
+      totalLessons: milestone.total_lessons ?? undefined,
       status,
       progress,
       completedAt,
@@ -320,6 +471,7 @@ export class SupabaseDataService implements IDataService {
       { onConflict: 'user_id,chore_id,completed_at' }
     );
     if (error) throw error;
+    await this.touchStreak();
   }
 
   async setMilestoneInProgress(milestoneId: number): Promise<void> {
@@ -395,6 +547,37 @@ export class SupabaseDataService implements IDataService {
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
+    }
+    await this.touchStreak();
+  }
+
+  /** Updates profile streak and last_activity_date when user does something. Never throws. */
+  private async touchStreak(): Promise<void> {
+    try {
+      const db = getSupabase();
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return;
+      const today = todayUtc();
+      const { data: profile } = await db
+        .from('profiles')
+        .select('streak, last_activity_date')
+        .eq('id', user.id)
+        .single();
+      if (!profile) return;
+      const last = profile.last_activity_date?.slice(0, 10) ?? null;
+      if (last === today) return;
+      const newStreak = last === yesterdayUtc() ? (profile.streak ?? 0) + 1 : 1;
+      const { error } = await db
+        .from('profiles')
+        .update({
+          streak: newStreak,
+          last_activity_date: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+      if (error) console.error('touchStreak failed:', error);
+    } catch (e) {
+      console.error('touchStreak error:', e);
     }
   }
 

@@ -9,6 +9,8 @@ export interface Milestone {
   title: string;
   topic: string;
   icon: string;
+  description?: string;
+  totalLessons?: number;
   status: MilestoneStatus;
   progress?: number; // 0-100, only for in-progress
   completedAt?: Date; // only for completed

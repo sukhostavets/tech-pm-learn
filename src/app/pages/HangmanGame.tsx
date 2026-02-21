@@ -18,6 +18,7 @@ export function HangmanGame() {
   const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [gameStatus, setGameStatus] = useState<'playing' | 'won' | 'lost'>('playing');
+  const handleGuessRef = useRef<(letter: string) => void>(() => {});
 
   const pickRandomIndex = (wordList: HangmanWord[]) =>
     wordList.length > 0 ? Math.floor(Math.random() * wordList.length) : 0;
@@ -71,6 +72,44 @@ export function HangmanGame() {
   const currentWord = words[currentWordIndex];
   const maxWrong = 6;
 
+  const handleGuess = (letter: string) => {
+    if (gameStatus !== 'playing' || guessedLetters.includes(letter)) return;
+    const word = words[currentWordIndex];
+    if (!word) return;
+
+    const newGuessedLetters = [...guessedLetters, letter];
+    setGuessedLetters(newGuessedLetters);
+
+    if (!word.word.includes(letter)) {
+      const newWrong = wrongGuesses + 1;
+      setWrongGuesses(newWrong);
+      if (newWrong >= maxWrong) {
+        setGameStatus('lost');
+      }
+    } else {
+      const isWon = word.word.split('').every((l) => newGuessedLetters.includes(l));
+      if (isWon) setGameStatus('won');
+    }
+  };
+
+  useEffect(() => {
+    handleGuessRef.current = handleGuess;
+  });
+  useEffect(() => {
+    if (gameStatus !== 'playing' || !words.length || !words[currentWordIndex]) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toUpperCase();
+      if (key.length === 1 && key >= 'A' && key <= 'Z') {
+        e.preventDefault();
+        handleGuessRef.current(key);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [gameStatus, currentWordIndex, words]);
+
+  const keyboard = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -89,28 +128,6 @@ export function HangmanGame() {
   if (!currentWord) {
     return null;
   }
-
-  const handleGuess = (letter: string) => {
-    if (gameStatus !== 'playing' || guessedLetters.includes(letter)) return;
-
-    const newGuessedLetters = [...guessedLetters, letter];
-    setGuessedLetters(newGuessedLetters);
-
-    if (!currentWord.word.includes(letter)) {
-      const newWrong = wrongGuesses + 1;
-      setWrongGuesses(newWrong);
-      if (newWrong >= maxWrong) {
-        setGameStatus('lost');
-      }
-    } else {
-      const isWon = currentWord.word.split('').every(l => newGuessedLetters.includes(l));
-      if (isWon) {
-        setGameStatus('won');
-      }
-    }
-  };
-
-  const keyboard = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 flex flex-col items-center">
